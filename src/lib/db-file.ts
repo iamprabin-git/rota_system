@@ -402,10 +402,28 @@ function migrateUsers(users: User[], employees: Employee[], companies: Company[]
   return { users: next, dirty };
 }
 
+let memory: Database | null = null;
+let diskWritable = process.env.VERCEL !== "1";
+
+function ensureDirs() {
+  if (!diskWritable) return false;
+  try {
+    mkdirSync(DATA_DIR, { recursive: true });
+    mkdirSync(FILES_DIR, { recursive: true });
+    mkdirSync(AVATARS_DIR, { recursive: true });
+    return true;
+  } catch {
+    diskWritable = false;
+    return false;
+  }
+}
+
 function ensureDb(): Database {
-  mkdirSync(DATA_DIR, { recursive: true });
-  mkdirSync(FILES_DIR, { recursive: true });
-  mkdirSync(AVATARS_DIR, { recursive: true });
+  if (memory) return memory;
+  if (!ensureDirs()) {
+    memory = seed();
+    return memory;
+  }
   try {
     const raw = readFileSync(DB_PATH, "utf8");
     const parsed = JSON.parse(raw) as Stored;
@@ -484,17 +502,23 @@ function ensureDb(): Database {
       files: parsed.files ?? [],
     };
     if (dirty) save(db);
+    memory = db;
     return db;
   } catch {
     const initial = seed();
-    writeFileSync(DB_PATH, JSON.stringify(initial, null, 2));
+    save(initial);
     return initial;
   }
 }
 
 function save(db: Database) {
-  mkdirSync(DATA_DIR, { recursive: true });
-  writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
+  memory = db;
+  if (!ensureDirs()) return;
+  try {
+    writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
+  } catch {
+    diskWritable = false;
+  }
 }
 
 export function getDb(): Database {

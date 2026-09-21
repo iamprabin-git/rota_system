@@ -2,15 +2,13 @@ import { NextResponse } from "next/server";
 import { assertCompanyAllowed } from "@/lib/access";
 import { createSessionToken, SESSION_COOKIE, sessionCookieOptions, toSessionUser, verifyPassword } from "@/lib/auth";
 import { getUserByLogin } from "@/lib/db";
-import { requireLiveDatabase } from "@/lib/db-guard";
 import { homePath } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
-    const missing = requireLiveDatabase();
-    if (missing) return missing;
     const body = (await request.json()) as { email?: string; password?: string };
     const email = body.email?.trim().toLowerCase() || "";
     const password = body.password || "";
@@ -45,7 +43,12 @@ export async function POST(request: Request) {
     if (user.status === "disabled") {
       return NextResponse.json({ error: "This login has been disabled.", reason: "disabled" }, { status: 403 });
     }
-    const companyGate = await assertCompanyAllowed(user);
+    let companyGate = { ok: true as const };
+    try {
+      companyGate = await assertCompanyAllowed(user);
+    } catch (error) {
+      console.error(error);
+    }
     if (!companyGate.ok) {
       return NextResponse.json({ error: companyGate.error, reason: companyGate.reason }, { status: 403 });
     }

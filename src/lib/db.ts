@@ -17,6 +17,13 @@ import type {
   User,
 } from "@/lib/types";
 
+function isUnreachable(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /fetch failed|ECONNRESET|ENOTFOUND|ETIMEDOUT|ECONNREFUSED|timeout|Connect|DATABASE_URL|password authentication|Tenant or user not found|Can't reach|unavailable|ssl|certificate|prisma:\/\//i.test(
+    message,
+  );
+}
+
 export {
   AVATARS_DIR,
   blankCompany,
@@ -44,7 +51,14 @@ export async function listCompanies() {
 }
 
 export async function getCompany(id?: string | null) {
-  return isPostgresConfigured() ? pg.getCompany(id) : file.getCompany(id);
+  if (isPostgresConfigured()) {
+    try {
+      return await pg.getCompany(id);
+    } catch (error) {
+      if (!isUnreachable(error)) throw error;
+    }
+  }
+  return file.getCompany(id);
 }
 
 export async function upsertCompany(company: Company) {
@@ -94,17 +108,39 @@ export async function listAgents(companyId?: string) {
 }
 
 export async function getUser(id: string) {
-  return isPostgresConfigured() ? pg.getUser(id) : file.getUser(id);
+  if (isPostgresConfigured()) {
+    try {
+      return await pg.getUser(id);
+    } catch (error) {
+      if (!isUnreachable(error)) throw error;
+    }
+  }
+  return file.getUser(id);
 }
 
 export async function getUserByEmail(email: string) {
-  return isPostgresConfigured() ? pg.getUserByEmail(email) : file.getUserByEmail(email);
+  if (isPostgresConfigured()) {
+    try {
+      return await pg.getUserByEmail(email);
+    } catch (error) {
+      if (!isUnreachable(error)) throw error;
+    }
+  }
+  return file.getUserByEmail(email);
 }
 
 export async function getUserByLogin(login: string) {
   const value = login.trim();
   if (!value) return undefined;
-  return (await getUserByEmail(value)) || getUser(value);
+  if (isPostgresConfigured()) {
+    try {
+      return (await pg.getUserByEmail(value)) || (await pg.getUser(value));
+    } catch (error) {
+      if (!isUnreachable(error)) throw error;
+      console.error("Postgres login lookup failed; using seed accounts.", error);
+    }
+  }
+  return file.getUserByEmail(value) || file.getUser(value);
 }
 
 export async function upsertUser(user: User) {

@@ -1,12 +1,19 @@
 import { neon } from "@neondatabase/serverless";
 
+function usableDatabaseUrl(value?: string) {
+  if (!value) return "";
+  const trimmed = value.trim().replace(/^['"]|['"]$/g, "");
+  if (/^(postgres|postgresql):\/\//i.test(trimmed)) return trimmed;
+  return "";
+}
+
 export function databaseUrl() {
   return (
-    process.env.POSTGRES_URL ||
-    process.env.DATABASE_URL ||
-    process.env.POSTGRES_PRISMA_URL ||
-    process.env.POSTGRES_URL_NON_POOLING ||
-    process.env.DATABASE_URL_UNPOOLED ||
+    usableDatabaseUrl(process.env.POSTGRES_URL) ||
+    usableDatabaseUrl(process.env.DATABASE_URL) ||
+    usableDatabaseUrl(process.env.POSTGRES_URL_NON_POOLING) ||
+    usableDatabaseUrl(process.env.DATABASE_URL_UNPOOLED) ||
+    usableDatabaseUrl(process.env.POSTGRES_PRISMA_URL) ||
     ""
   );
 }
