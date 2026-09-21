@@ -10,11 +10,11 @@ export const dynamic = "force-dynamic";
 
 export default async function AgentDashboardPage() {
   const user = await requirePage("agent");
-  const company = getCompany(user.companyId);
-  const employees = listEmployees(user.companyId || undefined);
-  const payslips = listPayslips(undefined, user.companyId || undefined);
+  const company = await getCompany(user.companyId);
+  const employees = await listEmployees(user.companyId || undefined);
+  const payslips = await listPayslips(undefined, user.companyId || undefined);
   const weekStart = startOfWeek();
-  const rota = listRota(weekStart, user.companyId || undefined);
+  const rota = await listRota(weekStart, user.companyId || undefined);
   const rotaHours = rota.reduce((sum, entry) => sum + sumHours(entry.days) + entry.overtimeHours, 0);
   const payrollYtd = payslips.reduce((sum, slip) => sum + slip.calculation.grossPay, 0);
   const netYtd = payslips.reduce((sum, slip) => sum + slip.calculation.netPay, 0);
@@ -23,10 +23,7 @@ export default async function AgentDashboardPage() {
   return (
     <div className="space-y-8">
       <PageHeading
-        icon="layout"
-        kicker="Agent panel · Tax year 2026/27"
-        title={company?.tradingName || company?.name || "Your company"}
-        description="Payroll for your company only. Log working hours against hourly wages, then generate UK PAYE payslips."
+        description={`Payroll for ${company?.tradingName || company?.name || "your company"} only. Log working hours against hourly wages, then generate UK PAYE payslips.`}
         actions={
           <>
             <Link href="/agent/rota" className="btn btn-ghost">

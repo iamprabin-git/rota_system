@@ -22,13 +22,13 @@ export default async function MyRecordPage() {
   if (!user.employeeId) {
     return <p className="text-ink-soft">This login is not linked to a staff record.</p>;
   }
-  const employee = getEmployee(user.employeeId);
+  const employee = await getEmployee(user.employeeId);
   if (!employee) redirect("/login");
-  const hours = hoursSummary(employee.id);
-  const pay = paymentSummary(employee.id);
-  const recentHours = listHourLogs(employee.id).slice(0, 6);
-  const statements = listPayslips(employee.id).slice(0, 4);
-  const files = listFiles(employee.id).slice(0, 4);
+  const hours = await hoursSummary(employee.id);
+  const pay = await paymentSummary(employee.id);
+  const recentHours = (await listHourLogs(employee.id)).slice(0, 6);
+  const statements = (await listPayslips(employee.id)).slice(0, 4);
+  const files = (await listFiles(employee.id)).slice(0, 4);
 
   return (
     <div className="space-y-6">

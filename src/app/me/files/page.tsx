@@ -8,13 +8,14 @@ export const dynamic = "force-dynamic";
 export default async function MyFilesPage() {
   const user = await getSession();
   if (!user?.employeeId) redirect("/login");
-  const employee = getEmployee(user.employeeId);
+  const employee = await getEmployee(user.employeeId);
   if (!employee) redirect("/login");
+  const files = await listFiles(employee.id);
 
   return (
     <div className="space-y-6">
       <p className="max-w-2xl text-ink-soft">Keep hour-tracking paperwork with the rest of your pay record.</p>
-      <FilesBoard employee={employee} files={listFiles(employee.id)} />
+      <FilesBoard employee={employee} files={files} />
     </div>
   );
 }

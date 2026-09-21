@@ -65,6 +65,7 @@ export function toSessionUser(user: {
   role: UserRole;
   companyId: string | null;
   employeeId: string | null;
+  avatar?: string;
 }): SessionUser {
   return {
     id: user.id,
@@ -73,5 +74,11 @@ export function toSessionUser(user: {
     role: user.role,
     companyId: user.companyId,
     employeeId: user.employeeId,
+    avatar: user.avatar || "",
   };
+}
+
+export async function setSessionCookie(response: NextResponse, user: SessionUser) {
+  response.cookies.set(SESSION_COOKIE, await createSessionToken(user), sessionCookieOptions());
+  return response;
 }

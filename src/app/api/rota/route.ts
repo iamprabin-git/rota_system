@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { canAccessEmployee, scopedCompanyId } from "@/lib/access";
 import { requireUser } from "@/lib/auth";
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
   if (!companyId) return NextResponse.json({ error: "No company is linked to this agent." }, { status: 403 });
   const { searchParams } = new URL(request.url);
   const weekStart = searchParams.get("weekStart") || undefined;
-  return NextResponse.json(listRota(weekStart, companyId));
+  return NextResponse.json(await listRota(weekStart, companyId));
 }
 
 export async function PUT(request: Request) {
@@ -24,7 +25,7 @@ export async function PUT(request: Request) {
   if (!body.employeeId || !body.weekStart) {
     return NextResponse.json({ error: "Employee and week start are required." }, { status: 400 });
   }
-  if (!canAccessEmployee(auth.user, body.employeeId)) {
+  if (!await canAccessEmployee(auth.user, body.employeeId)) {
     return NextResponse.json({ error: "That person is not in your company." }, { status: 403 });
   }
   const entry: RotaEntry = {
@@ -35,5 +36,7 @@ export async function PUT(request: Request) {
     overtimeHours: Number(body.overtimeHours) || 0,
     notes: body.notes || "",
   };
-  return NextResponse.json(upsertRotaEntry(entry));
+  const saved = await upsertRotaEntry(entry);
+  revalidatePath("/", "layout");
+  return NextResponse.json(saved);
 }

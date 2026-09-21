@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { scopedCompanyId } from "@/lib/access";
 import { requireUser } from "@/lib/auth";
@@ -11,7 +12,7 @@ export async function GET() {
   if (auth.error) return auth.error;
   const companyId = scopedCompanyId(auth.user);
   if (!companyId) return NextResponse.json({ error: "No company is linked to this agent." }, { status: 403 });
-  return NextResponse.json(listEmployees(companyId));
+  return NextResponse.json(await listEmployees(companyId));
 }
 
 export async function POST(request: Request) {
@@ -55,7 +56,8 @@ export async function POST(request: Request) {
     createdAt: new Date().toISOString(),
   };
 
-  const saved = upsertEmployee(employee);
-  setStaffLogin(saved, body.password);
+  const saved = await upsertEmployee(employee);
+  await setStaffLogin(saved, body.password);
+  revalidatePath("/", "layout");
   return NextResponse.json(saved, { status: 201 });
 }

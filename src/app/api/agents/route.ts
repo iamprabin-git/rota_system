@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { hashPassword, requireUser } from "@/lib/auth";
 import { getCompany, getUserByEmail, listAgents, upsertUser } from "@/lib/db";
@@ -9,7 +10,7 @@ export async function GET(request: Request) {
   if (auth.error) return auth.error;
   const { searchParams } = new URL(request.url);
   const companyId = searchParams.get("companyId") || undefined;
-  return NextResponse.json(listAgents(companyId));
+  return NextResponse.json(await listAgents(companyId));
 }
 
 export async function POST(request: Request) {
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     email?: string;
     password?: string;
   };
-  const company = body.companyId ? getCompany(body.companyId) : undefined;
+  const company = body.companyId ? await getCompany(body.companyId) : undefined;
   if (!company) {
     return NextResponse.json({ error: "Choose a company for this agent." }, { status: 400 });
   }
@@ -31,10 +32,10 @@ export async function POST(request: Request) {
   if (!email || !name || !password) {
     return NextResponse.json({ error: "Name, email and password are required." }, { status: 400 });
   }
-  if (getUserByEmail(email)) {
+  if (await getUserByEmail(email)) {
     return NextResponse.json({ error: "That email is already in use." }, { status: 409 });
   }
-  const user = upsertUser({
+  const user = await upsertUser({
     id: `user_${crypto.randomUUID()}`,
     email,
     passwordHash: hashPassword(password),
@@ -44,6 +45,7 @@ export async function POST(request: Request) {
     employeeId: null,
     createdAt: new Date().toISOString(),
   });
+  revalidatePath("/", "layout");
   return NextResponse.json(
     { id: user.id, email: user.email, name: user.name, role: user.role, companyId: user.companyId },
     { status: 201 },

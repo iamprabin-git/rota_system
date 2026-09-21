@@ -9,15 +9,12 @@ export const dynamic = "force-dynamic";
 
 export default async function AgentEmployeesPage() {
   const user = await requirePage("agent");
-  const employees = listEmployees(user.companyId || undefined);
-  const payslips = listPayslips(undefined, user.companyId || undefined);
+  const employees = await listEmployees(user.companyId || undefined);
+  const payslips = await listPayslips(undefined, user.companyId || undefined);
 
   return (
     <div className="space-y-6">
       <PageHeading
-        icon="users"
-        kicker="Workforce"
-        title="People & hourly wages"
         actions={
           <Link href="/agent/employees/new" className="btn btn-primary">
             <Icon name="userPlus" size={16} />

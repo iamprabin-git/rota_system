@@ -9,11 +9,7 @@ export default async function AgentRotaPage() {
   const user = await requirePage("agent");
   const weekStart = startOfWeek();
   const companyId = user.companyId || undefined;
-  return (
-    <RotaBoard
-      employees={listEmployees(companyId)}
-      initialWeek={weekStart}
-      initialRota={listRota(weekStart, companyId)}
-    />
-  );
+  const employees = await listEmployees(companyId);
+  const initialRota = await listRota(weekStart, companyId);
+  return <RotaBoard employees={employees} initialWeek={weekStart} initialRota={initialRota} />;
 }

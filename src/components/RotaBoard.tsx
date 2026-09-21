@@ -79,9 +79,6 @@ export function RotaBoard({
   return (
     <div className="space-y-5">
       <PageHeading
-        icon="calendar"
-        kicker="Weekly hours"
-        title="Rota"
         description={`${formatDate(weekStart)} – ${formatDate(weekEnd)}. Hours × each person's hourly wage.`}
         actions={
           <div className="flex items-center gap-2">

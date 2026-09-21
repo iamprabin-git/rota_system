@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { canAccessEmployee, ownEmployeeId, scopedCompanyId } from "@/lib/access";
 import { requireUser } from "@/lib/auth";
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
   if (auth.user.role === "admin") {
     return NextResponse.json({ error: "You do not have access." }, { status: 403 });
   }
-  return NextResponse.json(listHourLogs(employeeId || undefined, scopedCompanyId(auth.user)));
+  return NextResponse.json(await listHourLogs(employeeId || undefined, scopedCompanyId(auth.user)));
 }
 
 export async function POST(request: Request) {
@@ -25,10 +26,10 @@ export async function POST(request: Request) {
   if (auth.error) return auth.error;
   const body = (await request.json()) as Partial<HourLog>;
   const employeeId = ownEmployeeId(auth.user, body.employeeId);
-  if (!employeeId || !canAccessEmployee(auth.user, employeeId)) {
+  if (!employeeId || !await canAccessEmployee(auth.user, employeeId)) {
     return NextResponse.json({ error: "You cannot record hours for this person." }, { status: 403 });
   }
-  if (!getEmployee(employeeId)) {
+  if (!(await getEmployee(employeeId))) {
     return NextResponse.json({ error: "Staff record not found." }, { status: 404 });
   }
   const hours = Number(body.hours) || 0;
@@ -50,7 +51,9 @@ export async function POST(request: Request) {
     createdAt: now,
     updatedAt: now,
   };
-  return NextResponse.json(upsertHourLog(log), { status: 201 });
+  const saved = await upsertHourLog(log);
+  revalidatePath("/", "layout");
+  return NextResponse.json(saved, { status: 201 });
 }
 
 export async function PUT(request: Request) {
@@ -58,22 +61,22 @@ export async function PUT(request: Request) {
   if (auth.error) return auth.error;
   const body = (await request.json()) as Partial<HourLog>;
   if (!body.id) return NextResponse.json({ error: "Missing hour record." }, { status: 400 });
-  const existing = getHourLog(body.id);
+  const existing = await getHourLog(body.id);
   if (!existing) return NextResponse.json({ error: "Hour record not found." }, { status: 404 });
-  if (!canAccessEmployee(auth.user, existing.employeeId)) {
+  if (!await canAccessEmployee(auth.user, existing.employeeId)) {
     return NextResponse.json({ error: "You cannot change this record." }, { status: 403 });
   }
-  return NextResponse.json(
-    upsertHourLog({
-      ...existing,
-      ...body,
-      id: existing.id,
-      employeeId: existing.employeeId,
-      hours: Number(body.hours ?? existing.hours),
-      overtimeHours: Number(body.overtimeHours ?? existing.overtimeHours),
-      updatedAt: new Date().toISOString(),
-    }),
-  );
+  const saved = await upsertHourLog({
+    ...existing,
+    ...body,
+    id: existing.id,
+    employeeId: existing.employeeId,
+    hours: Number(body.hours ?? existing.hours),
+    overtimeHours: Number(body.overtimeHours ?? existing.overtimeHours),
+    updatedAt: new Date().toISOString(),
+  });
+  revalidatePath("/", "layout");
+  return NextResponse.json(saved);
 }
 
 export async function DELETE(request: Request) {
@@ -81,11 +84,12 @@ export async function DELETE(request: Request) {
   if (auth.error) return auth.error;
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
-  const existing = id ? getHourLog(id) : undefined;
+  const existing = id ? await getHourLog(id) : undefined;
   if (!existing) return NextResponse.json({ error: "Hour record not found." }, { status: 404 });
-  if (!canAccessEmployee(auth.user, existing.employeeId)) {
+  if (!await canAccessEmployee(auth.user, existing.employeeId)) {
     return NextResponse.json({ error: "You cannot delete this record." }, { status: 403 });
   }
-  deleteHourLog(existing.id);
+  await deleteHourLog(existing.id);
+  revalidatePath("/", "layout");
   return NextResponse.json({ ok: true });
 }

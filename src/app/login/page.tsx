@@ -1,13 +1,13 @@
 import { Suspense } from "react";
 import { Icon } from "@/components/Icon";
 import { LoginForm } from "@/components/LoginForm";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { UiSettings } from "@/components/UiSettings";
 
 export default function LoginPage() {
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center px-4 py-12">
       <div className="login-theme">
-        <ThemeToggle />
+        <UiSettings />
       </div>
       <div className="mb-8 text-center">
         <p className="text-xs uppercase tracking-[0.22em] text-brass">Admin · Agent · User</p>

@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { canAccessEmployee } from "@/lib/access";
 import { requireUser } from "@/lib/auth";
@@ -10,10 +11,10 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const auth = await requireUser();
   if (auth.error) return auth.error;
   const { id } = await context.params;
-  if (!canAccessEmployee(auth.user, id)) {
+  if (!await canAccessEmployee(auth.user, id)) {
     return NextResponse.json({ error: "You cannot view this record." }, { status: 403 });
   }
-  const employee = getEmployee(id);
+  const employee = await getEmployee(id);
   if (!employee) return NextResponse.json({ error: "Employee not found." }, { status: 404 });
   return NextResponse.json(employee);
 }
@@ -22,9 +23,9 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   const auth = await requireUser("agent");
   if (auth.error) return auth.error;
   const { id } = await context.params;
-  const existing = getEmployee(id);
+  const existing = await getEmployee(id);
   if (!existing) return NextResponse.json({ error: "Employee not found." }, { status: 404 });
-  if (!canAccessEmployee(auth.user, id)) {
+  if (!await canAccessEmployee(auth.user, id)) {
     return NextResponse.json({ error: "You cannot change this record." }, { status: 403 });
   }
   const body = (await request.json()) as Partial<Employee> & { password?: string };
@@ -47,8 +48,9 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   if (updated.hourlyRate <= 0) {
     return NextResponse.json({ error: "Hourly rate must be greater than zero." }, { status: 400 });
   }
-  const saved = upsertEmployee(updated);
-  setStaffLogin(saved, password);
+  const saved = await upsertEmployee(updated);
+  await setStaffLogin(saved, password);
+  revalidatePath("/", "layout");
   return NextResponse.json(saved);
 }
 
@@ -56,10 +58,11 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   const auth = await requireUser("agent");
   if (auth.error) return auth.error;
   const { id } = await context.params;
-  if (!getEmployee(id)) return NextResponse.json({ error: "Employee not found." }, { status: 404 });
-  if (!canAccessEmployee(auth.user, id)) {
+  if (!(await getEmployee(id))) return NextResponse.json({ error: "Employee not found." }, { status: 404 });
+  if (!await canAccessEmployee(auth.user, id)) {
     return NextResponse.json({ error: "You cannot remove this record." }, { status: 403 });
   }
-  deleteEmployee(id);
+  await deleteEmployee(id);
+  revalidatePath("/", "layout");
   return NextResponse.json({ ok: true });
 }

@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { canAccessEmployee, ownEmployeeId, scopedCompanyId } from "@/lib/access";
 import { requireUser } from "@/lib/auth";
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
   if (auth.user.role === "admin") {
     return NextResponse.json({ error: "You do not have access." }, { status: 403 });
   }
-  return NextResponse.json(listPayments(employeeId || undefined, scopedCompanyId(auth.user)));
+  return NextResponse.json(await listPayments(employeeId || undefined, scopedCompanyId(auth.user)));
 }
 
 export async function POST(request: Request) {
@@ -22,10 +23,10 @@ export async function POST(request: Request) {
   if (auth.error) return auth.error;
   const body = (await request.json()) as Partial<Payment>;
   const employeeId = ownEmployeeId(auth.user, body.employeeId);
-  if (!employeeId || !canAccessEmployee(auth.user, employeeId)) {
+  if (!employeeId || !await canAccessEmployee(auth.user, employeeId)) {
     return NextResponse.json({ error: "You cannot add a payment for this person." }, { status: 403 });
   }
-  if (!getEmployee(employeeId)) {
+  if (!(await getEmployee(employeeId))) {
     return NextResponse.json({ error: "Staff record not found." }, { status: 404 });
   }
   const amount = Number(body.amount);
@@ -45,33 +46,35 @@ export async function POST(request: Request) {
     notes: body.notes?.trim() || "",
     createdAt: new Date().toISOString(),
   };
-  return NextResponse.json(upsertPayment(payment), { status: 201 });
+  const saved = await upsertPayment(payment);
+  revalidatePath("/", "layout");
+  return NextResponse.json(saved, { status: 201 });
 }
 
 export async function PUT(request: Request) {
   const auth = await requireUser();
   if (auth.error) return auth.error;
   const body = (await request.json()) as Partial<Payment> & { id?: string };
-  const existing = body.id ? getPayment(body.id) : undefined;
+  const existing = body.id ? await getPayment(body.id) : undefined;
   if (!existing) return NextResponse.json({ error: "Payment not found." }, { status: 404 });
-  if (!canAccessEmployee(auth.user, existing.employeeId)) {
+  if (!await canAccessEmployee(auth.user, existing.employeeId)) {
     return NextResponse.json({ error: "You cannot change this payment." }, { status: 403 });
   }
   const status = body.status === "received" ? "received" : body.status === "due" ? "due" : existing.status;
-  return NextResponse.json(
-    upsertPayment({
-      ...existing,
-      ...body,
-      id: existing.id,
-      employeeId: existing.employeeId,
-      amount: Number(body.amount ?? existing.amount),
-      status,
-      paidDate:
-        status === "received"
-          ? body.paidDate || existing.paidDate || new Date().toISOString().slice(0, 10)
-          : "",
-    }),
-  );
+  const saved = await upsertPayment({
+    ...existing,
+    ...body,
+    id: existing.id,
+    employeeId: existing.employeeId,
+    amount: Number(body.amount ?? existing.amount),
+    status,
+    paidDate:
+      status === "received"
+        ? body.paidDate || existing.paidDate || new Date().toISOString().slice(0, 10)
+        : "",
+  });
+  revalidatePath("/", "layout");
+  return NextResponse.json(saved);
 }
 
 export async function DELETE(request: Request) {
@@ -82,11 +85,12 @@ export async function DELETE(request: Request) {
   }
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
-  const existing = id ? getPayment(id) : undefined;
+  const existing = id ? await getPayment(id) : undefined;
   if (!existing) return NextResponse.json({ error: "Payment not found." }, { status: 404 });
-  if (!canAccessEmployee(auth.user, existing.employeeId)) {
+  if (!await canAccessEmployee(auth.user, existing.employeeId)) {
     return NextResponse.json({ error: "You cannot delete this payment." }, { status: 403 });
   }
-  deletePayment(existing.id);
+  await deletePayment(existing.id);
+  revalidatePath("/", "layout");
   return NextResponse.json({ ok: true });
 }

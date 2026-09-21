@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { deleteUser, getUser } from "@/lib/db";
@@ -8,10 +9,11 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   const auth = await requireUser("admin");
   if (auth.error) return auth.error;
   const { id } = await context.params;
-  const user = getUser(id);
+  const user = await getUser(id);
   if (!user || user.role !== "agent") {
     return NextResponse.json({ error: "Agent not found." }, { status: 404 });
   }
-  deleteUser(id);
+  await deleteUser(id);
+  revalidatePath("/", "layout");
   return NextResponse.json({ ok: true });
 }

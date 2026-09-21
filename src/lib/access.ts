@@ -1,8 +1,8 @@
 import { getEmployee } from "./db";
 import type { SessionUser } from "./types";
 
-export function canAccessEmployee(user: SessionUser, employeeId: string): boolean {
-  const employee = getEmployee(employeeId);
+export async function canAccessEmployee(user: SessionUser, employeeId: string): Promise<boolean> {
+  const employee = await getEmployee(employeeId);
   if (!employee) return false;
   if (user.role === "user") return user.employeeId === employeeId;
   if (user.role === "agent") return employee.companyId === user.companyId;

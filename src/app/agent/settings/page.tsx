@@ -8,19 +8,14 @@ export const dynamic = "force-dynamic";
 
 export default async function AgentSettingsPage() {
   const user = await requirePage("agent");
-  const company = getCompany(user.companyId);
+  const company = await getCompany(user.companyId);
   if (!company) {
     return <p className="text-ink-soft">No company is linked to this agent login.</p>;
   }
 
   return (
     <div className="space-y-8">
-      <PageHeading
-        icon="briefcase"
-        kicker="Employer"
-        title="Company details"
-        description="These print on every itemised pay statement. Rates below are the HMRC 2026/27 figures used by the generator."
-      />
+      <PageHeading description="These print on every itemised pay statement. Rates below are the HMRC 2026/27 figures used by the generator." />
       <CompanyForm company={company} />
       <section className="grid gap-4 md:grid-cols-3">
         {[

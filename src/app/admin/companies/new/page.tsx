@@ -8,9 +8,6 @@ export default async function NewCompanyPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeading
-        icon="buildingPlus"
-        kicker="Admin panel"
-        title="New company"
         description="Create an employer, then add agents who run payroll for that company."
       />
       <CompanyForm company={blankCompany()} endpoint="/api/companies" method="POST" redirectTo="/admin/companies" />

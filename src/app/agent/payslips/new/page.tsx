@@ -15,22 +15,16 @@ export default async function NewAgentPayslipPage({
 }) {
   const user = await requirePage("agent");
   const query = await searchParams;
-  const employees = listEmployees(user.companyId || undefined);
-  const employee = query.employeeId ? getEmployee(query.employeeId) : undefined;
+  const employees = await listEmployees(user.companyId || undefined);
+  const employee = query.employeeId ? await getEmployee(query.employeeId) : undefined;
   const scoped = employee && employee.companyId === user.companyId ? employee : undefined;
-  const rota =
-    query.weekStart && scoped
-      ? listRota(query.weekStart, user.companyId || undefined).find((entry) => entry.employeeId === scoped.id)
-      : undefined;
+  const rotaEntries =
+    query.weekStart && scoped ? await listRota(query.weekStart, user.companyId || undefined) : [];
+  const rota = scoped ? rotaEntries.find((entry) => entry.employeeId === scoped.id) : undefined;
 
   return (
     <div className="space-y-6">
-      <PageHeading
-        icon="receipt"
-        kicker="Hours × hourly wage"
-        title="Generate a UK payslip"
-        description="Working hours are multiplied by the employee's hourly rate. Deductions use HMRC 2026/27 PAYE, Class 1 NI, student loan and auto-enrolment pension rates."
-      />
+      <PageHeading description="Working hours are multiplied by the employee's hourly rate. Deductions use HMRC 2026/27 PAYE, Class 1 NI, student loan and auto-enrolment pension rates." />
       <PayslipBuilder
         employees={employees}
         initialEmployeeId={scoped?.id}

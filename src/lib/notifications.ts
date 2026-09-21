@@ -10,9 +10,9 @@ export type StaffNotice = {
   createdAt: string;
 };
 
-export function buildStaffNotifications(employeeId: string): StaffNotice[] {
+export async function buildStaffNotifications(employeeId: string): Promise<StaffNotice[]> {
   const notices: StaffNotice[] = [];
-  const due = listPayments(employeeId).filter((item) => item.status === "due");
+  const due = (await listPayments(employeeId)).filter((item) => item.status === "due");
   const dueTotal = due.reduce((sum, item) => sum + item.amount, 0);
   if (dueTotal > 0) {
     const latest = due[0];
@@ -27,7 +27,7 @@ export function buildStaffNotifications(employeeId: string): StaffNotice[] {
   }
 
   const weekStart = startOfWeek();
-  const weekHours = listHourLogs(employeeId).filter((log) => log.date >= weekStart);
+  const weekHours = (await listHourLogs(employeeId)).filter((log) => log.date >= weekStart);
   const weekTotal = weekHours.reduce((sum, log) => sum + log.hours + log.overtimeHours, 0);
   if (weekTotal === 0) {
     notices.push({
@@ -40,7 +40,7 @@ export function buildStaffNotifications(employeeId: string): StaffNotice[] {
     });
   }
 
-  const slips = listPayslips(employeeId);
+  const slips = await listPayslips(employeeId);
   if (slips[0]) {
     const slip = slips[0];
     notices.push({
@@ -53,7 +53,7 @@ export function buildStaffNotifications(employeeId: string): StaffNotice[] {
     });
   }
 
-  const files = listFiles(employeeId);
+  const files = await listFiles(employeeId);
   if (files[0]) {
     notices.push({
       id: `file-${files[0].id}`,

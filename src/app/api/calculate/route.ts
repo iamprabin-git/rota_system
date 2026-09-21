@@ -11,11 +11,11 @@ export async function POST(request: Request) {
   const auth = await requireUser();
   if (auth.error) return auth.error;
   const body = (await request.json()) as Partial<PayslipInput>;
-  const employee = body.employeeId ? getEmployee(body.employeeId) : undefined;
+  const employee = body.employeeId ? await getEmployee(body.employeeId) : undefined;
   if (!employee) {
     return NextResponse.json({ error: "Select an employee." }, { status: 400 });
   }
-  if (!canAccessEmployee(auth.user, employee.id)) {
+  if (!await canAccessEmployee(auth.user, employee.id)) {
     return NextResponse.json({ error: "You cannot calculate pay for this person." }, { status: 403 });
   }
 
@@ -39,6 +39,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     employee,
-    calculation: calculatePayslip(employee, input, listPayslips(employee.id)),
+    calculation: calculatePayslip(employee, input, await listPayslips(employee.id)),
   });
 }

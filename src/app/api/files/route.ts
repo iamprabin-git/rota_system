@@ -1,9 +1,9 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import path from "node:path";
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { canAccessEmployee, ownEmployeeId, scopedCompanyId } from "@/lib/access";
 import { requireUser } from "@/lib/auth";
-import { addFileRecord, FILES_DIR, getEmployee, listFiles } from "@/lib/db";
+import { addFileRecord, getEmployee, listFiles } from "@/lib/db";
+import { putObject } from "@/lib/storage";
 import type { FileCategory, RecordFile } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   if (auth.user.role === "admin") {
     return NextResponse.json({ error: "You do not have access." }, { status: 403 });
   }
-  return NextResponse.json(listFiles(employeeId || undefined, scopedCompanyId(auth.user)));
+  return NextResponse.json(await listFiles(employeeId || undefined, scopedCompanyId(auth.user)));
 }
 
 export async function POST(request: Request) {
@@ -37,10 +37,10 @@ export async function POST(request: Request) {
   if (auth.error) return auth.error;
   const form = await request.formData();
   const employeeId = ownEmployeeId(auth.user, String(form.get("employeeId") || ""));
-  if (!employeeId || !canAccessEmployee(auth.user, employeeId)) {
+  if (!employeeId || !await canAccessEmployee(auth.user, employeeId)) {
     return NextResponse.json({ error: "You cannot add files for this person." }, { status: 403 });
   }
-  if (!getEmployee(employeeId)) {
+  if (!(await getEmployee(employeeId))) {
     return NextResponse.json({ error: "Staff record not found." }, { status: 404 });
   }
   const upload = form.get("file");
@@ -56,9 +56,7 @@ export async function POST(request: Request) {
   }
   const id = `file_${crypto.randomUUID()}`;
   const safe = upload.name.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 80) || "record";
-  const storedName = `${id}_${safe}`;
-  mkdirSync(FILES_DIR, { recursive: true });
-  writeFileSync(path.join(FILES_DIR, storedName), Buffer.from(await upload.arrayBuffer()));
+  const storedName = await putObject("files", `${id}_${safe}`, Buffer.from(await upload.arrayBuffer()), mimeType);
   const record: RecordFile = {
     id,
     employeeId,
@@ -70,5 +68,7 @@ export async function POST(request: Request) {
     notes: String(form.get("notes") || "").trim(),
     uploadedAt: new Date().toISOString(),
   };
-  return NextResponse.json(addFileRecord(record), { status: 201 });
+  const saved = await addFileRecord(record);
+  revalidatePath("/", "layout");
+  return NextResponse.json(saved, { status: 201 });
 }

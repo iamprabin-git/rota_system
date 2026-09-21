@@ -93,6 +93,10 @@ export type User = {
   companyId: string | null;
   employeeId: string | null;
   createdAt: string;
+  avatar?: string;
+  phone?: string;
+  jobTitle?: string;
+  notifyEmail?: boolean;
 };
 
 export type SessionUser = {
@@ -102,6 +106,7 @@ export type SessionUser = {
   role: UserRole;
   companyId: string | null;
   employeeId: string | null;
+  avatar: string;
 };
 
 export type HourLog = {

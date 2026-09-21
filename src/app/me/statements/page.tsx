@@ -9,9 +9,9 @@ export const dynamic = "force-dynamic";
 export default async function MyStatementsPage() {
   const user = await getSession();
   if (!user?.employeeId) redirect("/login");
-  const employee = getEmployee(user.employeeId);
+  const employee = await getEmployee(user.employeeId);
   if (!employee) redirect("/login");
-  const slips = listPayslips(employee.id);
+  const slips = await listPayslips(employee.id);
 
   return (
     <div className="space-y-6">

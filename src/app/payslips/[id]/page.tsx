@@ -12,9 +12,9 @@ export default async function PayslipDetailPage({ params }: { params: Promise<{ 
   const user = await getSession();
   if (!user) redirect("/login");
   const { id } = await params;
-  const payslip = getPayslip(id);
+  const payslip = await getPayslip(id);
   if (!payslip) notFound();
-  if (!canAccessEmployee(user, payslip.employeeId)) notFound();
+  if (!await canAccessEmployee(user, payslip.employeeId)) notFound();
 
   return (
     <div className="space-y-5 py-6">

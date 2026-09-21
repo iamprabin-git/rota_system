@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Figtree, Fraunces } from "next/font/google";
 import { AppShell } from "@/components/AppShell";
 import { ThemeScript } from "@/components/ThemeScript";
-import { getSession } from "@/lib/auth";
+import { getSession, toSessionUser } from "@/lib/auth";
+import { getCompany, getEmployee, getUser } from "@/lib/db";
+import { buildStaffNotifications } from "@/lib/notifications";
 import "./globals.css";
 
 const figtree = Figtree({
@@ -20,8 +22,15 @@ export const metadata: Metadata = {
   description: "UK working hours, hourly wages, and PAYE payslip generator for the 2026/27 tax year.",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const user = await getSession();
+  const session = await getSession();
+  const stored = session ? await getUser(session.id) : undefined;
+  const user = stored ? toSessionUser(stored) : session;
+  const employee = user?.employeeId ? await getEmployee(user.employeeId) : undefined;
+  const company = user?.companyId ? await getCompany(user.companyId) : undefined;
+  const notifications = employee ? await buildStaffNotifications(employee.id) : [];
   return (
     <html
       lang="en-GB"
@@ -34,7 +43,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <meta name="color-scheme" content="light dark" />
       </head>
       <body className="min-h-full">
-        <AppShell user={user}>{children}</AppShell>
+        <AppShell
+          user={user}
+          employee={employee}
+          companyName={company?.tradingName || company?.name}
+          notifications={notifications}
+        >
+          {children}
+        </AppShell>
       </body>
     </html>
   );

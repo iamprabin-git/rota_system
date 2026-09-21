@@ -29,4 +29,18 @@ npm install
 npm run dev
 ```
 
-Data is stored locally in `data/db.json`. Uploaded files go in `data/files`.
+## Data store
+
+On Vercel, all companies, people, logins, hours, rota, payslips and payments go in **Neon Postgres** (the Vercel Marketplace database). Uploaded files and profile photos go in **Vercel Blob**.
+
+1. In the Vercel dashboard, add the **Neon** integration to this project.
+2. Add the **Blob** store.
+3. Pull env vars locally:
+
+```bash
+npx vercel env pull .env.local
+```
+
+The first request against an empty Postgres database copies the demo records in automatically.
+
+Without `DATABASE_URL` / `POSTGRES_URL`, local development still uses `data/db.json` so the app can run on a laptop. The admin dashboard shows which store is live.

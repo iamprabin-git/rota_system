@@ -9,14 +9,11 @@ export const dynamic = "force-dynamic";
 
 export default async function AgentPayslipsPage() {
   const user = await requirePage("agent");
-  const payslips = listPayslips(undefined, user.companyId || undefined);
+  const payslips = await listPayslips(undefined, user.companyId || undefined);
 
   return (
     <div className="space-y-6">
       <PageHeading
-        icon="fileText"
-        kicker="PAYE 2026/27"
-        title="Payslips"
         actions={
           <Link href="/agent/payslips/new" className="btn btn-primary">
             <Icon name="filePlus" size={16} />

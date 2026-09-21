@@ -1,60 +1,121 @@
 import Link from "next/link";
-import { Icon } from "@/components/Icon";
-import { PageHeading } from "@/components/PageHeading";
+import { Icon, type IconName } from "@/components/Icon";
+import { PageHeading, SectionHeading } from "@/components/PageHeading";
 import { requirePage } from "@/lib/auth";
-import { listAgents, listCompanies, listEmployees } from "@/lib/db";
+import { listAgents, listCompanies, listEmployees, listPayslips, storageLabel } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminCompaniesPage() {
+export default async function AdminDashboardPage() {
   await requirePage("admin");
-  const companies = listCompanies();
+  const companies = await listCompanies();
+  const agents = await listAgents();
+  const people = await listEmployees();
+  const payslips = await listPayslips();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeading
-        icon="building"
-        kicker="Admin panel"
-        title="Companies"
-        description="Platform admin manages companies. Each company has its own agents (payroll) and users (staff records)."
+        description={`Manage companies and the agents who run payroll for each one. Live data: ${storageLabel()}.`}
         actions={
-          <Link href="/admin/companies/new" className="btn btn-primary">
-            <Icon name="buildingPlus" size={16} />
-            Add company
-          </Link>
+          <>
+            <Link href="/admin/companies" className="btn btn-ghost">
+              <Icon name="building" size={16} />
+              All companies
+            </Link>
+            <Link href="/admin/companies/new" className="btn btn-primary">
+              <Icon name="buildingPlus" size={16} />
+              Add company
+            </Link>
+          </>
         }
       />
-      <div className="card overflow-hidden">
-        {companies.length === 0 ? (
-          <p className="p-6 text-ink-soft">No companies yet.</p>
-        ) : (
-          <table className="data">
-            <thead>
-              <tr>
-                <th>Company</th>
-                <th>PAYE</th>
-                <th>Agents</th>
-                <th>People</th>
-              </tr>
-            </thead>
-            <tbody>
-              {companies.map((company) => (
-                <tr key={company.id}>
-                  <td>
-                    <Link href={`/admin/companies/${company.id}`} className="font-semibold">
-                      {company.tradingName || company.name}
-                    </Link>
-                    <p className="text-xs text-ink-soft">{company.name}</p>
-                  </td>
-                  <td className="tabular-nums">{company.payeReference || "—"}</td>
-                  <td>{listAgents(company.id).length}</td>
-                  <td>{listEmployees(company.id).length}</td>
+
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {(
+          [
+            ["building", "Companies", String(companies.length), "Employers on the platform"],
+            ["users", "Agents", String(agents.length), "Payroll logins by company"],
+            ["user", "People on payroll", String(people.length), "Staff records across companies"],
+            ["fileText", "Payslips", String(payslips.length), "Statements generated in total"],
+          ] as const
+        ).map(([icon, label, value, hint]) => (
+          <article key={label} className="card stat">
+            <p className="flex items-center gap-2 text-[0.7rem] uppercase tracking-[0.16em] text-ink-soft">
+              <Icon name={icon as IconName} size={14} />
+              {label}
+            </p>
+            <p className="serif mt-2 text-3xl">{value}</p>
+            <p className="mt-1 text-sm text-ink-soft">{hint}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+        <article className="card overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4">
+            <SectionHeading icon="building" title="Companies" />
+            <Link href="/admin/companies" className="text-sm font-semibold text-seal">
+              View all
+            </Link>
+          </div>
+          {companies.length === 0 ? (
+            <p className="px-5 pb-6 text-ink-soft">No companies yet. Add an employer to create agent logins.</p>
+          ) : (
+            <table className="data">
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Agents</th>
+                  <th>People</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+              </thead>
+              <tbody>
+                {companies.slice(0, 6).map((company) => (
+                  <tr key={company.id}>
+                    <td>
+                      <Link href={`/admin/companies/${company.id}`} className="font-semibold">
+                        {company.tradingName || company.name}
+                      </Link>
+                      <p className="text-xs text-ink-soft">{company.city || company.name}</p>
+                    </td>
+                    <td>{agents.filter((agent) => agent.companyId === company.id).length}</td>
+                    <td>{people.filter((person) => person.companyId === company.id).length}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </article>
+
+        <article className="card p-5">
+          <SectionHeading icon="users" title="Agents" />
+          <ul className="mt-4 space-y-3">
+            {agents.length === 0 ? (
+              <li className="text-ink-soft">No agents yet.</li>
+            ) : (
+              agents.slice(0, 8).map((agent) => {
+                const company = companies.find((item) => item.id === agent.companyId);
+                return (
+                  <li key={agent.id} className="flex items-center justify-between gap-3 border-b border-dashed border-rule pb-3">
+                    <div>
+                      <p className="font-semibold">{agent.name}</p>
+                      <p className="text-xs text-ink-soft">{company?.tradingName || company?.name || "No company"}</p>
+                    </div>
+                    <Link href={agent.companyId ? `/admin/companies/${agent.companyId}` : "/admin/companies"} className="text-sm font-semibold text-seal">
+                      Open
+                    </Link>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+          <Link href="/admin/agents" className="btn btn-ghost mt-5 w-full">
+            <Icon name="users" size={16} />
+            All agents
+          </Link>
+        </article>
+      </section>
     </div>
   );
 }

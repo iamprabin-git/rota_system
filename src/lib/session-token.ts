@@ -30,6 +30,7 @@ function publicUser(user: SessionUser): SessionUser {
     role,
     companyId: user.companyId ?? null,
     employeeId: user.employeeId,
+    avatar: user.avatar || "",
   };
 }
 

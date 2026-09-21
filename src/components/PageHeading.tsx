@@ -8,24 +8,32 @@ export function PageHeading({
   description,
   actions,
 }: {
-  icon: IconName;
-  kicker: string;
-  title: string;
+  icon?: IconName;
+  kicker?: string;
+  title?: string;
   description?: ReactNode;
   actions?: ReactNode;
 }) {
   return (
     <div className="page-heading">
-      <div className="page-heading-copy">
-        <span className="heading-icon">
-          <Icon name={icon} size={22} />
-        </span>
-        <div className="min-w-0">
-          <p className="text-xs uppercase tracking-[0.2em] text-brass">{kicker}</p>
-          <h1 className="serif text-4xl">{title}</h1>
-          {description ? <p className="mt-2 max-w-2xl text-ink-soft">{description}</p> : null}
+      {title ? (
+        <div className="page-heading-copy">
+          {icon ? (
+            <span className="heading-icon">
+              <Icon name={icon} size={22} />
+            </span>
+          ) : null}
+          <div className="min-w-0">
+            {kicker ? <p className="text-xs uppercase tracking-[0.2em] text-brass">{kicker}</p> : null}
+            <h1 className="serif text-4xl">{title}</h1>
+            {description ? <p className="mt-2 max-w-2xl text-ink-soft">{description}</p> : null}
+          </div>
         </div>
-      </div>
+      ) : description ? (
+        <p className="max-w-2xl text-ink-soft">{description}</p>
+      ) : (
+        <span />
+      )}
       {actions ? <div className="page-heading-actions">{actions}</div> : null}
     </div>
   );

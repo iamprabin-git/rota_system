@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function EditAgentEmployeePage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requirePage("agent");
   const { id } = await params;
-  const employee = getEmployee(id);
+  const employee = await getEmployee(id);
   if (!employee || employee.companyId !== user.companyId) notFound();
 
   return (

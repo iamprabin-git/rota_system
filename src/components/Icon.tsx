@@ -20,7 +20,13 @@ export type IconName =
   | "logout"
   | "bell"
   | "banknote"
-  | "receipt";
+  | "receipt"
+  | "settings"
+  | "lock"
+  | "camera"
+  | "mail"
+  | "phone"
+  | "chevron";
 
 const PATHS: Record<IconName, ReactNode> = {
   building: (
@@ -141,6 +147,37 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M9 9h6M9 13h6M9 17h4" />
     </>
   ),
+  settings: (
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2v2.2M12 19.8V22M4.93 4.93l1.56 1.56M17.51 17.51l1.56 1.56M2 12h2.2M19.8 12H22M4.93 19.07l1.56-1.56M17.51 6.49l1.56-1.56" />
+      <circle cx="12" cy="12" r="8" />
+    </>
+  ),
+  lock: (
+    <>
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </>
+  ),
+  camera: (
+    <>
+      <path d="M4 8h3l1.5-2h7L17 8h3v11H4z" />
+      <circle cx="12" cy="13.5" r="3.2" />
+    </>
+  ),
+  mail: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 8l9 6 9-6" />
+    </>
+  ),
+  phone: (
+    <>
+      <path d="M7 3h4l1.5 4-2 1.5a12 12 0 0 0 5 5L17 12l4 1.5V17.5A2.5 2.5 0 0 1 18.5 20 15 15 0 0 1 4 5.5 2.5 2.5 0 0 1 6.5 3H7z" />
+    </>
+  ),
+  chevron: <path d="M6 9l6 6 6-6" />,
 };
 
 export function Icon({

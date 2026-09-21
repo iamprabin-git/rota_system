@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   if (!email || !password) {
     return NextResponse.json({ error: "Enter your email and password." }, { status: 400 });
   }
-  const user = getUserByEmail(email);
+  const user = await getUserByEmail(email);
   if (!user || !verifyPassword(password, user.passwordHash)) {
     return NextResponse.json({ error: "Those details were not recognised." }, { status: 401 });
   }
