@@ -7,6 +7,7 @@ import { CompanyForm } from "@/components/CompanyForm";
 import { Icon, type IconName } from "@/components/Icon";
 import { PageHeading, SectionHeading } from "@/components/PageHeading";
 import { RemoveAgentButton } from "@/components/RemoveAgentButton";
+import { ResetAgentPassword } from "@/components/ResetAgentPassword";
 import { RemoveCompanyButton } from "@/components/RemoveCompanyButton";
 import { requirePage } from "@/lib/auth";
 import { getCompany, listAgents, listCompanyFollowUps, listCompanyPayments, listEmployees, listPayslips } from "@/lib/db";
@@ -85,7 +86,10 @@ export default async function AdminCompanyPage({ params }: { params: Promise<{ i
                       <td className="font-semibold">{agent.name}</td>
                       <td>{agent.email}</td>
                       <td className="text-right">
-                        <RemoveAgentButton id={agent.id} name={agent.name} />
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <ResetAgentPassword id={agent.id} name={agent.name} />
+                          <RemoveAgentButton id={agent.id} name={agent.name} />
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertCompanyAllowed } from "@/lib/access";
 import { createSessionToken, SESSION_COOKIE, sessionCookieOptions, toSessionUser, verifyPassword } from "@/lib/auth";
-import { getUserByEmail } from "@/lib/db";
+import { getUserByLogin } from "@/lib/db";
 import { homePath } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
@@ -13,17 +13,17 @@ export async function POST(request: Request) {
     const password = body.password || "";
     if (!email) {
       return NextResponse.json(
-        { error: "Enter your email address.", reason: "missing_email" },
+        { error: "Enter your email or login ID.", reason: "missing_email" },
         { status: 400 },
       );
     }
     if (!password) {
       return NextResponse.json({ error: "Enter your password.", reason: "missing_password" }, { status: 400 });
     }
-    const user = await getUserByEmail(email);
+    const user = await getUserByLogin(email);
     if (!user) {
       return NextResponse.json(
-        { error: "No account was found for this email.", reason: "unknown_email" },
+        { error: "No account was found for this email or login ID.", reason: "unknown_email" },
         { status: 401 },
       );
     }

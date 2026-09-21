@@ -115,15 +115,16 @@ export function EmployeeForm({ employee }: { employee?: Employee }) {
           />
         </label>
         <p className="col-span-full text-sm text-ink-soft">
-          Staff can sign in with this email. New logins stay pending until you approve them under Users.
+          Add an email and password so this person can sign in to the user panel.
         </p>
         <label className="field">
           {employee ? "New login password" : "Login password"}
           <input
             type="password"
+            required={!employee && Boolean(form.email)}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder={employee ? "Leave blank to keep current" : "Staff can sign in with this"}
+            placeholder={employee ? "Leave blank to keep current" : "Required if you set a login email"}
           />
         </label>
       </section>

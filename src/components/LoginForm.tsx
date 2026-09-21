@@ -41,7 +41,7 @@ export function LoginForm() {
     event.preventDefault();
     if (!email.trim()) {
       setReason("missing_email");
-      setError("Enter your email address.");
+      setError("Enter your email or login ID.");
       return;
     }
     if (!password) {
@@ -92,7 +92,7 @@ export function LoginForm() {
       <div className="login-form-head">
         <p className="login-kicker">Welcome back</p>
         <h2 className="serif login-form-title">Sign in</h2>
-        <p className="login-form-copy">Use the email and password for your admin, agent or user account.</p>
+        <p className="login-form-copy">Use the email or login ID and password for your admin, agent or user account.</p>
       </div>
 
       {error ? (
@@ -103,10 +103,10 @@ export function LoginForm() {
       ) : null}
 
       <label className={`field ${emailInvalid ? "field-invalid" : ""}`}>
-        Email address
+        Email or login ID
         <input
           autoComplete="username"
-          type="email"
+          type="text"
           required
           value={email}
           aria-invalid={emailInvalid}
@@ -118,7 +118,7 @@ export function LoginForm() {
             }
           }}
         />
-        {reason === "unknown_email" ? <span className="field-hint">Check the spelling, or ask payroll for access.</span> : null}
+        {reason === "unknown_email" ? <span className="field-hint">Check the spelling, or ask admin for the login ID.</span> : null}
       </label>
 
       <label className={`field ${passwordInvalid ? "field-invalid" : ""}`}>

@@ -40,13 +40,20 @@ export function AgentForm({ companyId }: { companyId: string }) {
         <input required value={name} onChange={(event) => setName(event.target.value)} />
       </label>
       <label className="field">
-        Email
-        <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+        Login email or ID
+        <input
+          required
+          autoComplete="off"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="agent@company.com or agent1"
+        />
       </label>
       <label className="field sm:col-span-2">
         Password
-        <input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+        <input required type="password" minLength={6} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
       </label>
+      <p className="sm:col-span-2 text-sm text-ink-soft">They sign in with this login and password.</p>
       {error ? <p className="sm:col-span-2 text-sm text-warn">{error}</p> : null}
       <div className="sm:col-span-2">
         <button className="btn btn-primary" disabled={saving} type="submit">

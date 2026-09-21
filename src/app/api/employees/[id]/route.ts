@@ -2,7 +2,7 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { canAccessEmployee } from "@/lib/access";
 import { requireUser } from "@/lib/auth";
-import { deleteEmployee, getEmployee, setStaffLogin, upsertEmployee } from "@/lib/db";
+import { deleteEmployee, getEmployee, listUsers, setStaffLogin, upsertEmployee } from "@/lib/db";
 import type { Employee } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +47,12 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   }
   if (updated.hourlyRate <= 0) {
     return NextResponse.json({ error: "Hourly rate must be greater than zero." }, { status: 400 });
+  }
+  if (updated.email) {
+    const hasLogin = (await listUsers(existing.companyId)).some((user) => user.employeeId === id);
+    if (!hasLogin && !password) {
+      return NextResponse.json({ error: "Add a login password for this email." }, { status: 400 });
+    }
   }
   const saved = await upsertEmployee(updated);
   await setStaffLogin(saved, password);

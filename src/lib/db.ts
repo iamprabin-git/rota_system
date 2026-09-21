@@ -101,6 +101,12 @@ export async function getUserByEmail(email: string) {
   return isPostgresConfigured() ? pg.getUserByEmail(email) : file.getUserByEmail(email);
 }
 
+export async function getUserByLogin(login: string) {
+  const value = login.trim();
+  if (!value) return undefined;
+  return (await getUserByEmail(value)) || getUser(value);
+}
+
 export async function upsertUser(user: User) {
   return isPostgresConfigured() ? pg.upsertUser(user) : file.upsertUser(user);
 }

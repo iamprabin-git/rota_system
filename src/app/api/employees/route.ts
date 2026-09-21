@@ -27,6 +27,9 @@ export async function POST(request: Request) {
   if (!body.hourlyRate || Number(body.hourlyRate) <= 0) {
     return NextResponse.json({ error: "Hourly rate must be greater than zero." }, { status: 400 });
   }
+  if (body.email?.trim() && !body.password) {
+    return NextResponse.json({ error: "Add a login password for this email." }, { status: 400 });
+  }
 
   const employee: Employee = {
     id: `emp_${crypto.randomUUID()}`,

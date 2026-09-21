@@ -44,6 +44,7 @@ export async function POST(request: Request) {
     companyId: company.id,
     employeeId: null,
     createdAt: new Date().toISOString(),
+    status: "active",
   });
   revalidatePath("/", "layout");
   return NextResponse.json(

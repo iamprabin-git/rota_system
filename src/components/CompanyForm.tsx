@@ -24,7 +24,11 @@ export function CompanyForm({
   const [saving, setSaving] = useState(false);
   const [logoBusy, setLogoBusy] = useState(false);
   const [error, setError] = useState("");
+  const [agentName, setAgentName] = useState("");
+  const [agentEmail, setAgentEmail] = useState("");
+  const [agentPassword, setAgentPassword] = useState("");
   const canLogo = Boolean(form.id);
+  const creating = method === "POST";
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -33,7 +37,11 @@ export function CompanyForm({
     const response = await fetch(endpoint, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify(
+        creating
+          ? { ...form, agentName, agentEmail, agentPassword }
+          : form,
+      ),
     });
     const data = await response.json();
     setSaving(false);
@@ -163,6 +171,39 @@ export function CompanyForm({
         Phone
         <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
       </label>
+      {creating ? (
+        <>
+          <h2 className="serif col-span-full mt-2 text-xl">First agent login</h2>
+          <p className="col-span-full text-sm text-ink-soft">
+            This email or login ID and password open the agent panel for this company.
+          </p>
+          <label className="field">
+            Agent name
+            <input required value={agentName} onChange={(e) => setAgentName(e.target.value)} />
+          </label>
+          <label className="field">
+            Agent login
+            <input
+              required
+              autoComplete="off"
+              value={agentEmail}
+              onChange={(e) => setAgentEmail(e.target.value)}
+              placeholder="agent@company.com or agent1"
+            />
+          </label>
+          <label className="field sm:col-span-2">
+            Agent password
+            <input
+              required
+              type="password"
+              autoComplete="new-password"
+              minLength={6}
+              value={agentPassword}
+              onChange={(e) => setAgentPassword(e.target.value)}
+            />
+          </label>
+        </>
+      ) : null}
       <div className="flex items-center gap-3 sm:col-span-2">
         <button className="btn btn-primary" disabled={saving} type="submit">
           {saving ? "Saving…" : method === "POST" ? "Create company" : "Save employer"}

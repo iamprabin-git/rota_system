@@ -25,7 +25,7 @@ export function UserManager({ employees, users }: { employees: Employee[]; users
   const [employeeId, setEmployeeId] = useState("");
   const [phone, setPhone] = useState("");
   const [jobTitle, setJobTitle] = useState("");
-  const [approveNow, setApproveNow] = useState(false);
+  const [approveNow, setApproveNow] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -88,7 +88,7 @@ export function UserManager({ employees, users }: { employees: Employee[]; users
 
   return (
     <div className="space-y-6">
-      <PageHeading description="Create staff logins, link them to a person on payroll, then approve them before they can sign in." />
+      <PageHeading description="Create a staff email and password. They can sign in straight away unless you leave the account pending." />
 
       <form onSubmit={createUser} className="card grid gap-4 p-5 sm:grid-cols-2">
         <h2 className="serif col-span-full text-xl">Create user</h2>
@@ -125,7 +125,7 @@ export function UserManager({ employees, users }: { employees: Employee[]; users
         </label>
         <label className="col-span-full flex items-center gap-3 text-sm font-semibold">
           <input type="checkbox" className="h-4 w-4" checked={approveNow} onChange={(event) => setApproveNow(event.target.checked)} />
-          Approve immediately so they can sign in
+          Allow sign-in now
         </label>
         {error ? <p className="col-span-full text-sm text-warn">{error}</p> : null}
         <div className="col-span-full">

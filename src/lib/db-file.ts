@@ -105,7 +105,7 @@ export function blankCompany(): Company {
     logo: "",
     access: "allowed",
     live: "active",
-    crmStage: "lead",
+    crmStage: "active",
     crmNotes: "",
     nextFollowUp: "",
     lastContactedAt: "",
@@ -627,7 +627,10 @@ export function setStaffLogin(employee: Employee, password?: string) {
     existing.name = `${employee.firstName} ${employee.lastName}`;
     existing.role = "user";
     existing.companyId = employee.companyId;
-    if (password) existing.passwordHash = hashPassword(password);
+    if (password) {
+      existing.passwordHash = hashPassword(password);
+      if (existing.status === "pending") existing.status = "active";
+    }
     save(db);
     return;
   }
@@ -641,7 +644,7 @@ export function setStaffLogin(employee: Employee, password?: string) {
     companyId: employee.companyId,
     employeeId: employee.id,
     createdAt: new Date().toISOString(),
-    status: "pending",
+    status: "active",
   });
   save(db);
 }

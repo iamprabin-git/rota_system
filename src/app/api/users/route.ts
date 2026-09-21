@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     const match = people.find((person) => person.email === email);
     employeeId = match?.id || null;
   }
-  const status: AccountStatus = body.approveNow || body.status === "active" ? "active" : "pending";
+  const status: AccountStatus = body.approveNow === false || body.status === "pending" ? "pending" : "active";
   const user = await upsertUser({
     id: `user_${crypto.randomUUID()}`,
     email,
