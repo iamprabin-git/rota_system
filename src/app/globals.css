@@ -337,6 +337,14 @@ table.data td {
   vertical-align: middle;
 }
 
+table.data tfoot th,
+table.data tfoot td {
+  border-bottom: none;
+  border-top: 1px solid var(--rule);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--paper) 70%, var(--rule));
+}
+
 .site-header {
   border-bottom: 1px solid var(--rule);
   background: var(--header);
