@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { scopedCompanyId } from "@/lib/access";
 import { hashPassword, requireUser, toSessionUser } from "@/lib/auth";
 import { getEmployee, getUserByEmail, listEmployees, listUsers, upsertUser } from "@/lib/db";
+import { requireLiveDatabase } from "@/lib/db-guard";
 import type { AccountStatus } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const missing = requireLiveDatabase();
+  if (missing) return missing;
   const auth = await requireUser("agent");
   if (auth.error) return auth.error;
   const companyId = scopedCompanyId(auth.user);

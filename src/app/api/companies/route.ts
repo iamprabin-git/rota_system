@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { hashPassword, requireUser } from "@/lib/auth";
 import { withCompanyDefaults } from "@/lib/company";
 import { getUserByEmail, listCompanies, upsertCompany, upsertUser } from "@/lib/db";
+import { requireLiveDatabase } from "@/lib/db-guard";
 import type { Company } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const missing = requireLiveDatabase();
+  if (missing) return missing;
   const auth = await requireUser("admin");
   if (auth.error) return auth.error;
   const body = (await request.json()) as Partial<Company> & {

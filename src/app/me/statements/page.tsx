@@ -9,6 +9,15 @@ import { formatDate, hoursLabel, money } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
+function printHref(opts: { from?: string; to?: string; hours?: boolean; id?: string }) {
+  const params = new URLSearchParams({ print: "1" });
+  if (opts.from) params.set("from", opts.from);
+  if (opts.to) params.set("to", opts.to);
+  if (opts.hours) params.set("hours", "1");
+  if (opts.id) params.set("id", opts.id);
+  return `/me/statements/print?${params}`;
+}
+
 export default async function MyStatementsPage({
   searchParams,
 }: {
@@ -30,23 +39,44 @@ export default async function MyStatementsPage({
   const slips = (await listPayslips(employee.id))
     .filter((slip) => slip.status === "approved")
     .filter((slip) => (!from || slip.periodEnd >= from) && (!to || slip.periodStart <= to));
+  const slipHours = slips.reduce(
+    (sum, slip) => sum + slip.calculation.regularHours + slip.calculation.overtimeHours,
+    0,
+  );
+  const slipGross = slips.reduce((sum, slip) => sum + slip.calculation.grossPay, 0);
+  const slipTax = slips.reduce((sum, slip) => sum + slip.calculation.payeTax, 0);
+  const slipNi = slips.reduce((sum, slip) => sum + slip.calculation.employeeNI, 0);
+  const slipNet = slips.reduce((sum, slip) => sum + slip.calculation.netPay, 0);
 
   return (
     <div className="space-y-8">
       <PageHeading
-        description="Daily hours with start and finish times, plus approved UK payslips you can open and print."
+        description="Approved daily hours with start and finish times, plus approved UK payslips you can open and print."
         actions={
-          slips.length > 0 ? (
-            <Link href="/me/statements/print?print=1" className="btn btn-ghost">
+          logs.length > 0 || slips.length > 0 ? (
+            <Link href={printHref({ from, to })} className="btn btn-primary">
               <Icon name="printer" size={16} />
-              Print all
+              Print statement
             </Link>
           ) : null
         }
       />
 
       <StatementDateFilter from={from} to={to} />
-      <StatementDailyHours employee={employee} logs={logs} from={from} to={to} />
+      <StatementDailyHours
+        employee={employee}
+        logs={logs}
+        from={from}
+        to={to}
+        actions={
+          logs.length > 0 ? (
+            <Link href={printHref({ from, to, hours: true })} className="btn btn-ghost">
+              <Icon name="printer" size={16} />
+              Print hours
+            </Link>
+          ) : null
+        }
+      />
 
       <section className="space-y-4">
         <SectionHeading icon="fileText" title="Payslips" description="Approved statements for the same date filter." />
@@ -88,7 +118,7 @@ export default async function MyStatementsPage({
                     <td className="font-semibold tabular-nums">{money(slip.calculation.netPay)}</td>
                     <td className="text-right">
                       <Link
-                        href={`/me/statements/print?id=${encodeURIComponent(slip.id)}&print=1`}
+                        href={printHref({ id: slip.id })}
                         className="staff-icon-btn"
                         aria-label={`Print statement ${formatDate(slip.periodStart)}`}
                         title="Print statement"
@@ -99,6 +129,17 @@ export default async function MyStatementsPage({
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr>
+                  <th scope="row">Total hours</th>
+                  <td className="tabular-nums">{hoursLabel(slipHours)}</td>
+                  <td className="tabular-nums">{money(slipGross)}</td>
+                  <td className="tabular-nums">{money(slipTax)}</td>
+                  <td className="tabular-nums">{money(slipNi)}</td>
+                  <td className="tabular-nums">{money(slipNet)}</td>
+                  <td />
+                </tr>
+              </tfoot>
             </table>
           )}
         </div>

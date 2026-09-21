@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import { assertCompanyAllowed } from "@/lib/access";
 import { createSessionToken, SESSION_COOKIE, sessionCookieOptions, toSessionUser, verifyPassword } from "@/lib/auth";
 import { getUserByLogin } from "@/lib/db";
+import { requireLiveDatabase } from "@/lib/db-guard";
 import { homePath } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
+    const missing = requireLiveDatabase();
+    if (missing) return missing;
     const body = (await request.json()) as { email?: string; password?: string };
     const email = body.email?.trim().toLowerCase() || "";
     const password = body.password || "";

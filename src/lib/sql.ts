@@ -15,6 +15,10 @@ export function isPostgresConfigured() {
   return Boolean(databaseUrl());
 }
 
+export function liveDatabaseMissing() {
+  return Boolean(process.env.VERCEL) && !isPostgresConfigured();
+}
+
 let client: ReturnType<typeof neon> | null = null;
 let boot: Promise<void> | null = null;
 

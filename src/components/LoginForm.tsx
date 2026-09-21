@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Icon } from "@/components/Icon";
 
@@ -18,7 +18,6 @@ type LoginReason =
   | "";
 
 export function LoginForm() {
-  const router = useRouter();
   const search = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -55,6 +54,7 @@ export function LoginForm() {
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
@@ -77,8 +77,7 @@ export function LoginForm() {
         next && next.startsWith("/") && !next.startsWith("//") && next !== "/" && !next.startsWith("/login")
           ? next
           : data.redirect || "/admin";
-      router.push(dest);
-      router.refresh();
+      window.location.assign(dest);
     } catch (err) {
       setReason("server");
       setError(err instanceof Error ? err.message : "Could not sign in. Please try again.");

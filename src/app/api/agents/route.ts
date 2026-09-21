@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { hashPassword, requireUser } from "@/lib/auth";
 import { getCompany, getUserByEmail, listAgents, upsertUser } from "@/lib/db";
+import { requireLiveDatabase } from "@/lib/db-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const missing = requireLiveDatabase();
+  if (missing) return missing;
   const auth = await requireUser("admin");
   if (auth.error) return auth.error;
   const body = (await request.json()) as {

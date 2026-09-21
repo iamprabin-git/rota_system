@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { StatusPill } from "@/components/StatusPill";
 import { SectionHeading } from "@/components/PageHeading";
@@ -9,7 +10,9 @@ export function isoDay(value?: string | null) {
 }
 
 export function filterLogsByDate(logs: HourLog[], from: string, to: string) {
-  return logs.filter((log) => (!from || log.date >= from) && (!to || log.date <= to));
+  return logs.filter(
+    (log) => log.status === "approved" && (!from || log.date >= from) && (!to || log.date <= to),
+  );
 }
 
 export function StatementDateFilter({ from, to }: { from: string; to: string }) {
@@ -43,11 +46,13 @@ export function StatementDailyHours({
   logs,
   from,
   to,
+  actions,
 }: {
   employee: Employee;
   logs: HourLog[];
   from: string;
   to: string;
+  actions?: ReactNode;
 }) {
   const overtimeRate = employee.hourlyRate * employee.overtimeMultiplier;
   const totalHours = logs.reduce((sum, log) => sum + log.hours + log.overtimeHours, 0);
@@ -61,14 +66,17 @@ export function StatementDailyHours({
 
   return (
     <section className="space-y-4">
-      <SectionHeading
-        icon="clock"
-        title="Daily hours"
-        description={`${rangeLabel}. Start time, end time and pay for each day you logged.`}
-      />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <SectionHeading
+          icon="clock"
+          title="Daily hours"
+          description={`${rangeLabel}. Approved hours only, with start time, end time and pay.`}
+        />
+        {actions}
+      </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <article className="card stat">
-          <p className="text-[0.7rem] uppercase tracking-[0.16em] text-ink-soft">Hours</p>
+          <p className="text-[0.7rem] uppercase tracking-[0.16em] text-ink-soft">Total hours</p>
           <p className="serif mt-2 text-3xl">{hoursLabel(totalHours)}</p>
           <p className="mt-1 text-sm text-ink-soft">
             {hoursLabel(regular)} regular · {hoursLabel(overtime)} OT
@@ -87,7 +95,9 @@ export function StatementDailyHours({
       <div className="card overflow-hidden">
         {logs.length === 0 ? (
           <p className="p-6 text-ink-soft">
-            {from || to ? "No hours in this date range." : "No daily hours yet. Log start and end times under Hours."}
+            {from || to
+              ? "No approved hours in this date range."
+              : "No approved hours yet. Payroll must approve your timesheet before it appears here."}
           </p>
         ) : (
           <table className="data">
@@ -98,6 +108,7 @@ export function StatementDailyHours({
                 <th>End</th>
                 <th>Hours</th>
                 <th>OT</th>
+                <th>Total hours</th>
                 <th>Gross</th>
                 <th>Status</th>
                 <th>Notes</th>
@@ -122,6 +133,7 @@ export function StatementDailyHours({
                     </td>
                     <td className="tabular-nums">{hoursLabel(log.hours)}</td>
                     <td className="tabular-nums">{log.overtimeHours ? hoursLabel(log.overtimeHours) : "—"}</td>
+                    <td className="tabular-nums font-semibold">{hoursLabel(log.hours + log.overtimeHours)}</td>
                     <td className="tabular-nums">{money(earned)}</td>
                     <td>
                       <StatusPill status={log.status} />
@@ -130,9 +142,21 @@ export function StatementDailyHours({
                     <td>{log.notes || "—"}</td>
                   </tr>
                 );
-              })}
-            </tbody>
-          </table>
+                })}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th scope="row" colSpan={3}>
+                    Total hours
+                  </th>
+                  <td className="tabular-nums">{hoursLabel(regular)}</td>
+                  <td className="tabular-nums">{hoursLabel(overtime)}</td>
+                  <td className="tabular-nums">{hoursLabel(totalHours)}</td>
+                  <td className="tabular-nums">{money(gross)}</td>
+                  <td colSpan={2} />
+                </tr>
+              </tfoot>
+            </table>
         )}
       </div>
     </section>
