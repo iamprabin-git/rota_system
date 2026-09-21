@@ -1,20 +1,24 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { formatDate, hoursLabel, money } from "@/lib/format";
+import { StatusPill } from "@/components/StatusPill";
+import { formatDate, formatTimeRange, hoursFromTimes, hoursLabel, money } from "@/lib/format";
 import type { Employee, HourLog } from "@/lib/types";
 
 export function HoursTracker({ employee, logs }: { employee: Employee; logs: HourLog[] }) {
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState(today);
-  const [hours, setHours] = useState(8);
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("17:00");
   const [overtimeHours, setOvertimeHours] = useState(0);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const hours = useMemo(() => hoursFromTimes(startTime, endTime) || 0, [startTime, endTime]);
+  const overnight = Boolean(startTime && endTime && endTime < startTime);
   const totalHours = logs.reduce((sum, log) => sum + log.hours + log.overtimeHours, 0);
   const overtimeRate = employee.hourlyRate * employee.overtimeMultiplier;
   const gross = logs.reduce(
@@ -29,7 +33,7 @@ export function HoursTracker({ employee, logs }: { employee: Employee; logs: Hou
     const response = await fetch("/api/hours", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date, hours, overtimeHours, notes, employeeId: employee.id }),
+      body: JSON.stringify({ date, startTime, endTime, hours, overtimeHours, notes, employeeId: employee.id }),
     });
     const data = await response.json();
     setSaving(false);
@@ -53,7 +57,8 @@ export function HoursTracker({ employee, logs }: { employee: Employee; logs: Hou
       <form onSubmit={onSubmit} className="card space-y-4 p-5 sm:p-6">
         <h2 className="serif text-2xl">Log hours worked</h2>
         <p className="text-sm text-ink-soft">
-          {money(employee.hourlyRate)}/h · overtime {employee.overtimeMultiplier}× = {money(overtimeRate)}
+          Enter start and finish time. Hours are calculated automatically. {money(employee.hourlyRate)}/h · overtime{" "}
+          {employee.overtimeMultiplier}× = {money(overtimeRate)}. Payroll must approve each entry.
         </p>
         <label className="field">
           Date
@@ -61,14 +66,18 @@ export function HoursTracker({ employee, logs }: { employee: Employee; logs: Hou
         </label>
         <div className="grid grid-cols-2 gap-3">
           <label className="field">
-            Basic hours
-            <input
-              type="number"
-              min="0"
-              step="0.25"
-              value={hours}
-              onChange={(event) => setHours(Number(event.target.value) || 0)}
-            />
+            Start time
+            <input type="time" required value={startTime} onChange={(event) => setStartTime(event.target.value)} />
+          </label>
+          <label className="field">
+            End time
+            <input type="time" required value={endTime} onChange={(event) => setEndTime(event.target.value)} />
+          </label>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="field">
+            Hours worked
+            <input readOnly value={hours ? hoursLabel(hours) : "—"} />
           </label>
           <label className="field">
             Overtime hours
@@ -81,12 +90,13 @@ export function HoursTracker({ employee, logs }: { employee: Employee; logs: Hou
             />
           </label>
         </div>
+        {overnight ? <p className="text-sm text-ink-soft">Overnight shift: hours run past midnight.</p> : null}
         <label className="field">
           Notes
           <input value={notes} placeholder="Shift, site, or job" onChange={(event) => setNotes(event.target.value)} />
         </label>
         {error ? <p className="rounded-xl bg-[#f8ead2] px-4 py-3 text-sm text-warn">{error}</p> : null}
-        <button className="btn btn-primary w-full" disabled={saving} type="submit">
+        <button className="btn btn-primary w-full" disabled={saving || hours <= 0} type="submit">
           {saving ? "Saving…" : "Save hours"}
         </button>
       </form>
@@ -110,9 +120,11 @@ export function HoursTracker({ employee, logs }: { employee: Employee; logs: Hou
               <thead>
                 <tr>
                   <th>Date</th>
+                  <th>Time</th>
                   <th>Hours</th>
                   <th>OT</th>
                   <th>Gross</th>
+                  <th>Status</th>
                   <th />
                 </tr>
               </thead>
@@ -125,13 +137,19 @@ export function HoursTracker({ employee, logs }: { employee: Employee; logs: Hou
                         {formatDate(log.date)}
                         {log.notes ? <p className="text-xs text-ink-soft">{log.notes}</p> : null}
                       </td>
+                      <td className="tabular-nums">{formatTimeRange(log.startTime, log.endTime) || "—"}</td>
                       <td className="tabular-nums">{log.hours}</td>
                       <td className="tabular-nums">{log.overtimeHours || "—"}</td>
                       <td className="tabular-nums">{money(earned)}</td>
                       <td>
-                        <button className="text-sm text-seal" type="button" onClick={() => remove(log.id)}>
-                          Delete
-                        </button>
+                        <StatusPill status={log.status} />
+                      </td>
+                      <td>
+                        {log.status !== "approved" ? (
+                          <button className="text-sm text-seal" type="button" onClick={() => remove(log.id)}>
+                            Delete
+                          </button>
+                        ) : null}
                       </td>
                     </tr>
                   );

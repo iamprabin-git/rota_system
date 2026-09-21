@@ -13,7 +13,8 @@ export async function GET() {
   const auth = await requireUser();
   if (auth.error) return auth.error;
   if (auth.user.role === "user") {
-    return NextResponse.json(await listPayslips(auth.user.employeeId || undefined));
+    const slips = await listPayslips(auth.user.employeeId || undefined);
+    return NextResponse.json(slips.filter((slip) => slip.status === "approved"));
   }
   if (auth.user.role === "agent") {
     const companyId = scopedCompanyId(auth.user);
@@ -67,6 +68,10 @@ export async function POST(request: Request) {
   const payslip: Payslip = {
     id: `ps_${crypto.randomUUID()}`,
     createdAt: new Date().toISOString(),
+    status: "pending",
+    reviewNote: "",
+    reviewedAt: "",
+    reviewedBy: "",
     ...input,
     snapshot: {
       employeeName: fullName(employee),
@@ -82,6 +87,7 @@ export async function POST(request: Request) {
       companyName: company.tradingName || company.name,
       companyAddress: companyAddress(company),
       payeReference: company.payeReference,
+      companyId: company.id,
     },
     calculation,
   };

@@ -26,7 +26,11 @@ export type IconName =
   | "camera"
   | "mail"
   | "phone"
-  | "chevron";
+  | "chevron"
+  | "check"
+  | "x"
+  | "printer"
+  | "calculator";
 
 const PATHS: Record<IconName, ReactNode> = {
   building: (
@@ -178,6 +182,22 @@ const PATHS: Record<IconName, ReactNode> = {
     </>
   ),
   chevron: <path d="M6 9l6 6 6-6" />,
+  check: <path d="M5 12.5 9.5 17 19 7" />,
+  x: <path d="M6 6l12 12M18 6 6 18" />,
+  printer: (
+    <>
+      <path d="M6 9V4h12v5" />
+      <rect x="6" y="13" width="12" height="7" rx="1" />
+      <path d="M6 14H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2" />
+      <path d="M8 17h8" />
+    </>
+  ),
+  calculator: (
+    <>
+      <rect x="5" y="3" width="14" height="18" rx="2" />
+      <path d="M8 7h8M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01" />
+    </>
+  ),
 };
 
 export function Icon({

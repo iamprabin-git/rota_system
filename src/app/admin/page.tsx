@@ -2,16 +2,30 @@ import Link from "next/link";
 import { Icon, type IconName } from "@/components/Icon";
 import { PageHeading, SectionHeading } from "@/components/PageHeading";
 import { requirePage } from "@/lib/auth";
-import { listAgents, listCompanies, listEmployees, listPayslips, storageLabel } from "@/lib/db";
+import { companyAccess, followUpDue } from "@/lib/company";
+import { listAgents, listCompanies, listCompanyFollowUps, listCompanyPayments, listEmployees, listPayslips, storageLabel } from "@/lib/db";
+import { money } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   await requirePage("admin");
-  const companies = await listCompanies();
-  const agents = await listAgents();
-  const people = await listEmployees();
-  const payslips = await listPayslips();
+  const [companies, agents, people, payslips, invoices, followUps] = await Promise.all([
+    listCompanies(),
+    listAgents(),
+    listEmployees(),
+    listPayslips(),
+    listCompanyPayments(),
+    listCompanyFollowUps(),
+  ]);
+  const blocked = companies.filter((company) => companyAccess(company) === "disallowed").length;
+  const dueInvoices = invoices.filter((item) => item.status === "due");
+  const deactive = companies.filter(
+    (company) =>
+      companyAccess(company) === "allowed" &&
+      (company.live === "deactive" || dueInvoices.some((item) => item.companyId === company.id)),
+  ).length;
+  const dueFollowUps = followUps.filter((item) => followUpDue(item));
 
   return (
     <div className="space-y-8">
@@ -19,6 +33,10 @@ export default async function AdminDashboardPage() {
         description={`Manage companies and the agents who run payroll for each one. Live data: ${storageLabel()}.`}
         actions={
           <>
+            <Link href="/admin/crm" className="btn btn-ghost">
+              <Icon name="phone" size={16} />
+              CRM
+            </Link>
             <Link href="/admin/companies" className="btn btn-ghost">
               <Icon name="building" size={16} />
               All companies
@@ -34,10 +52,10 @@ export default async function AdminDashboardPage() {
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {(
           [
-            ["building", "Companies", String(companies.length), "Employers on the platform"],
-            ["users", "Agents", String(agents.length), "Payroll logins by company"],
-            ["user", "People on payroll", String(people.length), "Staff records across companies"],
-            ["fileText", "Payslips", String(payslips.length), "Statements generated in total"],
+            ["building", "Companies", String(companies.length), deactive ? `${deactive} deactive` : blocked ? `${blocked} disallowed` : "Employers on the platform"],
+            ["wallet", "Company payments due", money(dueInvoices.reduce((sum, item) => sum + item.amount, 0)), `${dueInvoices.length} invoices`],
+            ["phone", "Follow-ups due", String(dueFollowUps.length), "CRM contacts waiting"],
+            ["users", "Agents", String(agents.length), `${people.length} people · ${payslips.length} slips`],
           ] as const
         ).map(([icon, label, value, hint]) => (
           <article key={label} className="card stat">

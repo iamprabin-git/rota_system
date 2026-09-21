@@ -20,9 +20,51 @@ export function moneyPlain(value: number): string {
   return GBP_PLAIN.format(Number.isFinite(value) ? value : 0);
 }
 
+export function hoursFromTimes(start?: string, end?: string): number | null {
+  if (!start || !end) return null;
+  const toMins = (value: string) => {
+    const [hours, minutes] = value.split(":").map(Number);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+    return hours * 60 + minutes;
+  };
+  const from = toMins(start);
+  const to = toMins(end);
+  if (from == null || to == null) return null;
+  let mins = to - from;
+  if (mins < 0) mins += 24 * 60;
+  return Math.round((mins / 60) * 100) / 100;
+}
+
+export function formatTimeRange(start?: string, end?: string) {
+  if (!start || !end) return "";
+  return `${start}–${end}`;
+}
+
+export function addHoursToTime(start: string, hours: number): string {
+  const [hour, minute] = start.split(":").map(Number);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return "";
+  const total = hour * 60 + minute + Math.round(hours * 60);
+  const mins = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
+  return `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
+}
+
 export function hoursLabel(value: number): string {
   const n = Number.isFinite(value) ? value : 0;
   return `${n.toLocaleString("en-GB", { maximumFractionDigits: 2, minimumFractionDigits: n % 1 ? 2 : 0 })}h`;
+}
+
+export function formatRelative(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso || "";
+  const diff = Date.now() - date.getTime();
+  if (diff < 45_000) return "Just now";
+  const minutes = Math.round(diff / 60_000);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `${days}d`;
+  return formatDate(iso);
 }
 
 export function formatDate(iso: string): string {

@@ -2,9 +2,8 @@ import Link from "next/link";
 import { Icon, type IconName } from "@/components/Icon";
 import { PageHeading, SectionHeading } from "@/components/PageHeading";
 import { requirePage } from "@/lib/auth";
-import { getCompany, listEmployees, listPayslips, listRota } from "@/lib/db";
-import { formatDate, fullName, money, startOfWeek } from "@/lib/format";
-import { sumHours } from "@/lib/uk-payroll";
+import { getCompany, listEmployees, listHourLogs, listPayslips, listUsers } from "@/lib/db";
+import { formatDate, fullName, money } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -13,22 +12,27 @@ export default async function AgentDashboardPage() {
   const company = await getCompany(user.companyId);
   const employees = await listEmployees(user.companyId || undefined);
   const payslips = await listPayslips(undefined, user.companyId || undefined);
-  const weekStart = startOfWeek();
-  const rota = await listRota(weekStart, user.companyId || undefined);
-  const rotaHours = rota.reduce((sum, entry) => sum + sumHours(entry.days) + entry.overtimeHours, 0);
-  const payrollYtd = payslips.reduce((sum, slip) => sum + slip.calculation.grossPay, 0);
+  const logs = await listHourLogs(undefined, user.companyId || undefined);
+  const staffUsers = (await listUsers(user.companyId || undefined)).filter((item) => item.role === "user");
+  const pendingHours = logs.filter((log) => log.status === "pending").length;
+  const pendingPayslips = payslips.filter((slip) => slip.status === "pending").length;
+  const pendingUsers = staffUsers.filter((item) => item.status === "pending").length;
   const netYtd = payslips.reduce((sum, slip) => sum + slip.calculation.netPay, 0);
   const recent = payslips.slice(0, 6);
 
   return (
     <div className="space-y-8">
       <PageHeading
-        description={`Payroll for ${company?.tradingName || company?.name || "your company"} only. Log working hours against hourly wages, then generate UK PAYE payslips.`}
+        description={`Payroll for ${company?.tradingName || company?.name || "your company"} only. Create rotas, approve hours and payslips, and manage user logins.`}
         actions={
           <>
+            <Link href="/agent/hours" className="btn btn-ghost">
+              <Icon name="clock" size={16} />
+              Approve hours{pendingHours ? ` (${pendingHours})` : ""}
+            </Link>
             <Link href="/agent/rota" className="btn btn-ghost">
               <Icon name="calendar" size={16} />
-              This week&apos;s rota
+              Create rota
             </Link>
             <Link href="/agent/payslips/new" className="btn btn-primary">
               <Icon name="filePlus" size={16} />
@@ -42,8 +46,8 @@ export default async function AgentDashboardPage() {
         {(
           [
             ["users", "People on payroll", String(employees.length), "Hourly staff records"],
-            ["clock", "Hours this week", rotaHours.toLocaleString("en-GB", { maximumFractionDigits: 1 }), "From the live rota"],
-            ["fileText", "Gross generated", money(payrollYtd), "All saved payslips"],
+            ["clock", "Hours to approve", String(pendingHours), pendingUsers ? `${pendingUsers} user logins pending` : "Timesheets from users"],
+            ["fileText", "Payslips to approve", String(pendingPayslips), "Statements waiting to publish"],
             ["banknote", "Net paid", money(netYtd), "Take-home across slips"],
           ] as const
         ).map(([icon, label, value, hint]) => (

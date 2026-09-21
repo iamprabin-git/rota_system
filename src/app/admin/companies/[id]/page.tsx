@@ -1,12 +1,15 @@
 import { notFound } from "next/navigation";
 import { AgentForm } from "@/components/AgentForm";
+import { CompanyAccessCard } from "@/components/CompanyAccessCard";
+import { CompanyBillingBoard } from "@/components/CompanyBillingBoard";
+import { CompanyCrmBoard } from "@/components/CompanyCrmBoard";
 import { CompanyForm } from "@/components/CompanyForm";
 import { Icon, type IconName } from "@/components/Icon";
 import { PageHeading, SectionHeading } from "@/components/PageHeading";
 import { RemoveAgentButton } from "@/components/RemoveAgentButton";
 import { RemoveCompanyButton } from "@/components/RemoveCompanyButton";
 import { requirePage } from "@/lib/auth";
-import { getCompany, listAgents, listEmployees, listPayslips } from "@/lib/db";
+import { getCompany, listAgents, listCompanyFollowUps, listCompanyPayments, listEmployees, listPayslips } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -15,9 +18,13 @@ export default async function AdminCompanyPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const company = await getCompany(id);
   if (!company) notFound();
-  const agents = await listAgents(company.id);
-  const people = await listEmployees(company.id);
-  const payslips = await listPayslips(undefined, company.id);
+  const [agents, people, payslips, payments, followUps] = await Promise.all([
+    listAgents(company.id),
+    listEmployees(company.id),
+    listPayslips(undefined, company.id),
+    listCompanyPayments(company.id),
+    listCompanyFollowUps(company.id),
+  ]);
 
   return (
     <div className="space-y-8">
@@ -88,6 +95,21 @@ export default async function AdminCompanyPage({ params }: { params: Promise<{ i
           </div>
           <AgentForm companyId={company.id} />
         </div>
+      </section>
+
+      <CompanyAccessCard
+        company={company}
+        dueAmount={payments.filter((item) => item.status === "due").reduce((sum, item) => sum + item.amount, 0)}
+      />
+
+      <section className="space-y-4">
+        <SectionHeading icon="wallet" title="Company payments" description="Platform invoices for this employer." />
+        <CompanyBillingBoard companies={[company]} payments={payments} companyId={company.id} />
+      </section>
+
+      <section className="space-y-4">
+        <SectionHeading icon="phone" title="CRM follow-up" description="Notes and next contact for this company." />
+        <CompanyCrmBoard companies={[company]} followUps={followUps} company={company} />
       </section>
     </div>
   );

@@ -9,9 +9,12 @@ import {
   listFiles,
   listHourLogs,
   listPayslips,
+  listRota,
   paymentSummary,
 } from "@/lib/db";
-import { formatDate, hoursLabel, money } from "@/lib/format";
+import { formatDate, hoursLabel, money, startOfWeek } from "@/lib/format";
+import { StatusPill } from "@/components/StatusPill";
+import { sumHours } from "@/lib/uk-payroll";
 
 export const dynamic = "force-dynamic";
 
@@ -27,8 +30,10 @@ export default async function MyRecordPage() {
   const hours = await hoursSummary(employee.id);
   const pay = await paymentSummary(employee.id);
   const recentHours = (await listHourLogs(employee.id)).slice(0, 6);
-  const statements = (await listPayslips(employee.id)).slice(0, 4);
+  const statements = (await listPayslips(employee.id)).filter((slip) => slip.status === "approved").slice(0, 4);
   const files = (await listFiles(employee.id)).slice(0, 4);
+  const weekStart = startOfWeek();
+  const rota = (await listRota(weekStart, employee.companyId)).find((entry) => entry.employeeId === employee.id);
 
   return (
     <div className="space-y-6">
@@ -46,6 +51,29 @@ export default async function MyRecordPage() {
         <Link href="/me/hours" className="btn btn-primary">
           <Icon name="clock" size={16} />
           Record hours
+        </Link>
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-3">
+        <Link href="/me/rota" className="card p-5">
+          <SectionHeading icon="calendar" title="My rota" />
+          <p className="mt-2 text-ink-soft">
+            {rota && sumHours(rota.days) + rota.overtimeHours > 0
+              ? `${hoursLabel(sumHours(rota.days) + rota.overtimeHours)} this week with start and finish times.`
+              : "Open your weekly schedule and 1-hour shift reminders."}
+          </p>
+        </Link>
+        <Link href="/me/statements" className="card p-5">
+          <SectionHeading icon="fileText" title="Statements" />
+          <p className="mt-2 text-ink-soft">
+            {statements.length
+              ? `${statements.length} approved slip${statements.length === 1 ? "" : "s"} ready to view or print.`
+              : "View and print approved payslips."}
+          </p>
+        </Link>
+        <Link href="/me/calculators" className="card p-5">
+          <SectionHeading icon="calculator" title="Calculators" />
+          <p className="mt-2 text-ink-soft">Hours, gross pay and estimated take-home from your rate and tax code.</p>
         </Link>
       </section>
 
@@ -86,6 +114,7 @@ export default async function MyRecordPage() {
                   <th>Date</th>
                   <th>Hours</th>
                   <th>Overtime</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -94,6 +123,9 @@ export default async function MyRecordPage() {
                     <td>{formatDate(log.date)}</td>
                     <td className="tabular-nums">{log.hours}</td>
                     <td className="tabular-nums">{log.overtimeHours || "—"}</td>
+                    <td>
+                      <StatusPill status={log.status} />
+                    </td>
                   </tr>
                 ))}
               </tbody>

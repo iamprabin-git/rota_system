@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { HoursGrid } from "@/components/HoursGrid";
 import { PayslipDocument } from "@/components/PayslipDocument";
 import { addDays, isoDate, money, periodRange, startOfWeek } from "@/lib/format";
+import { companyLogoUrl } from "@/lib/logo";
 import type { Company, Employee, PayFrequency, Payslip, PayslipCalculation, PayslipInput } from "@/lib/types";
 import { emptyDays, sumHours, taxPeriodFor } from "@/lib/uk-payroll";
 
@@ -129,6 +130,7 @@ export function PayslipBuilder({
             companyName: company?.tradingName || company?.name || "Payslip preview",
             companyAddress: [company?.addressLine1, company?.city, company?.postcode].filter(Boolean).join(", "),
             payeReference: company?.payeReference || "",
+            companyId: company?.id,
           },
           calculation: preview.calculation,
         }
@@ -256,7 +258,7 @@ export function PayslipBuilder({
 
       <div className="min-w-0">
         {draftPayslip ? (
-          <PayslipDocument payslip={draftPayslip} />
+          <PayslipDocument payslip={draftPayslip} logoSrc={companyLogoUrl(company)} />
         ) : (
           <div className="card p-8 text-ink-soft">Enter hours to preview PAYE, NI and net pay.</div>
         )}

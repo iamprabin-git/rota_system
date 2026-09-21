@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { UserPhoto } from "@/components/UserPhoto";
@@ -9,6 +9,7 @@ import type { SessionUser } from "@/lib/types";
 
 export function ProfileMenu({ user, subtitle }: { user: SessionUser; subtitle: string }) {
   const pathname = usePathname();
+  const router = useRouter();
   const root = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const active = pathname === "/profile" || pathname.startsWith("/profile/");
@@ -35,6 +36,12 @@ export function ProfileMenu({ user, subtitle }: { user: SessionUser; subtitle: s
 
   function toggle() {
     setOpen((value) => !value);
+  }
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
   }
 
   return (
@@ -72,6 +79,10 @@ export function ProfileMenu({ user, subtitle }: { user: SessionUser; subtitle: s
             <Icon name="mail" size={16} />
             Email and phone
           </Link>
+          <button className="profile-item danger" type="button" role="menuitem" onClick={() => void logout()}>
+            <Icon name="logout" size={16} />
+            Sign out
+          </button>
         </div>
       ) : null}
     </div>

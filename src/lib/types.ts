@@ -40,6 +40,14 @@ export const WEEKDAY_LABELS: Record<Weekday, string> = {
   sun: "Sun",
 };
 
+export type CompanyAccess = "allowed" | "disallowed";
+
+export type CompanyLive = "active" | "deactive";
+
+export type CrmStage = "lead" | "onboarding" | "active" | "at-risk" | "closed";
+
+export const CRM_STAGES: CrmStage[] = ["lead", "onboarding", "active", "at-risk", "closed"];
+
 export type Company = {
   id: string;
   name: string;
@@ -52,6 +60,13 @@ export type Company = {
   accountsOfficeRef: string;
   email: string;
   phone: string;
+  logo?: string;
+  access?: CompanyAccess;
+  live?: CompanyLive;
+  crmStage?: CrmStage;
+  crmNotes?: string;
+  nextFollowUp?: string;
+  lastContactedAt?: string;
 };
 
 export type Employee = {
@@ -84,6 +99,10 @@ export type Employee = {
 
 export type UserRole = "admin" | "agent" | "user";
 
+export type AccountStatus = "pending" | "active" | "disabled";
+
+export type ApprovalStatus = "pending" | "approved" | "rejected";
+
 export type User = {
   id: string;
   email: string;
@@ -97,6 +116,7 @@ export type User = {
   phone?: string;
   jobTitle?: string;
   notifyEmail?: boolean;
+  status?: AccountStatus;
 };
 
 export type SessionUser = {
@@ -113,11 +133,17 @@ export type HourLog = {
   id: string;
   employeeId: string;
   date: string;
+  startTime?: string;
+  endTime?: string;
   hours: number;
   overtimeHours: number;
   notes: string;
   createdAt: string;
   updatedAt: string;
+  status?: ApprovalStatus;
+  reviewNote?: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
 };
 
 export type PaymentStatus = "due" | "received";
@@ -133,6 +159,28 @@ export type Payment = {
   method: PaymentMethod | "";
   reference: string;
   notes: string;
+  createdAt: string;
+};
+
+export type CompanyPayment = {
+  id: string;
+  companyId: string;
+  amount: number;
+  status: PaymentStatus;
+  dueDate: string;
+  paidDate: string;
+  method: PaymentMethod | "";
+  reference: string;
+  notes: string;
+  createdAt: string;
+};
+
+export type CompanyFollowUp = {
+  id: string;
+  companyId: string;
+  note: string;
+  dueDate: string;
+  completedAt: string;
   createdAt: string;
 };
 
@@ -233,6 +281,10 @@ export type PayslipCalculation = {
 export type Payslip = PayslipInput & {
   id: string;
   createdAt: string;
+  status?: ApprovalStatus;
+  reviewNote?: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
   snapshot: {
     employeeName: string;
     jobTitle: string;
@@ -247,6 +299,7 @@ export type Payslip = PayslipInput & {
     companyName: string;
     companyAddress: string;
     payeReference: string;
+    companyId?: string;
   };
   calculation: PayslipCalculation;
 };
@@ -259,5 +312,7 @@ export type Database = {
   payslips: Payslip[];
   hourLogs: HourLog[];
   payments: Payment[];
+  companyPayments: CompanyPayment[];
+  companyFollowUps: CompanyFollowUp[];
   files: RecordFile[];
 };

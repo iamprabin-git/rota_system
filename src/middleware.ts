@@ -49,7 +49,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.json({ error: "Please sign in." }, { status: 401 });
     }
     const login = new URL("/login", request.url);
-    login.searchParams.set("next", pathname);
+    if (pathname !== "/") login.searchParams.set("next", pathname);
     return NextResponse.redirect(login);
   }
 

@@ -4,6 +4,7 @@ import { PayslipDocument } from "@/components/PayslipDocument";
 import { PayslipToolbar } from "@/components/PayslipToolbar";
 import { canAccessEmployee } from "@/lib/access";
 import { getSession } from "@/lib/auth";
+import { brandForEmployee } from "@/lib/branding";
 import { getPayslip } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,8 @@ export default async function PayslipDetailPage({ params }: { params: Promise<{ 
   const payslip = await getPayslip(id);
   if (!payslip) notFound();
   if (!await canAccessEmployee(user, payslip.employeeId)) notFound();
+  if (user.role === "user" && payslip.status !== "approved") notFound();
+  const { logoSrc } = await brandForEmployee(payslip.employeeId, payslip.snapshot.companyId || user.companyId);
 
   return (
     <div className="space-y-5 py-6">
@@ -25,9 +28,9 @@ export default async function PayslipDetailPage({ params }: { params: Promise<{ 
         >
           ← {user.role === "user" ? "My statements" : "All payslips"}
         </Link>
-        <PayslipToolbar id={payslip.id} canDelete={user.role === "agent"} />
+        <PayslipToolbar id={payslip.id} canDelete={user.role === "agent"} canReview={user.role === "agent"} status={payslip.status} />
       </div>
-      <PayslipDocument payslip={payslip} />
+      <PayslipDocument payslip={payslip} logoSrc={logoSrc} />
     </div>
   );
 }

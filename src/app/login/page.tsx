@@ -3,42 +3,68 @@ import { Icon } from "@/components/Icon";
 import { LoginForm } from "@/components/LoginForm";
 import { UiSettings } from "@/components/UiSettings";
 
+const ROLES = [
+  ["shield", "Admin", "Companies, agents and platform access"],
+  ["briefcase", "Agent", "Rota, hours, payslips and staff logins"],
+  ["user", "User", "Your hours, statements, rota and pay"],
+] as const;
+
+const DEMOS = [
+  ["Admin", "admin@rotasystem.local", "RotaAdmin26"],
+  ["Agent", "agent@rotasystem.local", "Agent2026"],
+  ["User", "amira@rotasystem.local", "Hours2026"],
+] as const;
+
 export default function LoginPage() {
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center px-4 py-12">
+    <div className="login-page">
       <div className="login-theme">
         <UiSettings />
       </div>
-      <div className="mb-8 text-center">
-        <p className="text-xs uppercase tracking-[0.22em] text-brass">Admin · Agent · User</p>
-        <h1 className="serif mt-2 text-4xl">Sign in to RotaSystem</h1>
-        <p className="mx-auto mt-3 max-w-md text-ink-soft">
-          Three panels: platform admin for companies, company agents for payroll, and users for personal hours and pay.
+
+      <aside className="login-brand">
+        <div className="login-brand-mark">
+          <span className="login-brand-icon">
+            <Icon name="briefcase" size={18} />
+          </span>
+          <div>
+            <p className="login-kicker light">UK payroll workspace</p>
+            <p className="serif login-brand-name">RotaSystem</p>
+          </div>
+        </div>
+        <h1 className="serif login-brand-title">Hours, rota and payslips in one place.</h1>
+        <p className="login-brand-copy">
+          Sign in to the panel that matches your role. Company name and logo follow the employer you belong to.
         </p>
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-          {[
-            ["shield", "Admin"],
-            ["briefcase", "Agent"],
-            ["user", "User"],
-          ].map(([icon, label]) => (
-            <span key={label} className="nav-icon-link rounded-full border border-rule bg-card px-3 py-1.5 text-sm text-ink-soft">
-              <Icon name={icon as "shield" | "briefcase" | "user"} size={14} />
-              {label}
-            </span>
+        <ul className="login-roles">
+          {ROLES.map(([icon, label, hint]) => (
+            <li key={label}>
+              <span className="login-role-icon">
+                <Icon name={icon} size={16} />
+              </span>
+              <span>
+                <strong>{label}</strong>
+                <span>{hint}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+        <div className="login-demos">
+          <p className="login-kicker light">Demo access</p>
+          {DEMOS.map(([role, email, password]) => (
+            <p key={email}>
+              <strong>{role}</strong> {email}
+              <span> · {password}</span>
+            </p>
           ))}
         </div>
-      </div>
-      <Suspense>
-        <LoginForm />
-      </Suspense>
-      <div className="mt-8 max-w-lg space-y-1 text-center text-sm text-ink-soft">
-        <p className="font-semibold text-ink">Demo logins</p>
-        <p>Admin: admin@rotasystem.local · RotaAdmin26</p>
-        <p>Agent (RotaSystem Care): agent@rotasystem.local · Agent2026</p>
-        <p>User (RotaSystem Care): amira@rotasystem.local · Hours2026</p>
-        <p>Agent (Harbourview): priya@harbourview.local · Agent2026</p>
-        <p>User (Harbourview): niamh@harbourview.local · Hours2026</p>
-      </div>
+      </aside>
+
+      <main className="login-panel">
+        <Suspense>
+          <LoginForm />
+        </Suspense>
+      </main>
     </div>
   );
 }

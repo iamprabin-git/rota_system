@@ -1,27 +1,15 @@
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
+import { assertCompanyAllowed } from "./access";
+import { accountMessage, accountStatus, isAccountActive } from "./approvals";
+import { getUser } from "./db";
+import { hashPassword, verifyPassword } from "./passwords";
 import { homePath } from "./roles";
 import { createSessionToken, readSessionToken, SESSION_COOKIE, SESSION_DAYS } from "./session-token";
 import type { SessionUser, UserRole } from "./types";
 
-export { SESSION_COOKIE, createSessionToken, readSessionToken };
-
-export function hashPassword(password: string): string {
-  const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(password, salt, 64).toString("hex");
-  return `${salt}:${hash}`;
-}
-
-export function verifyPassword(password: string, stored: string): boolean {
-  const [salt, hash] = stored.split(":");
-  if (!salt || !hash) return false;
-  const check = scryptSync(password, salt, 64);
-  const expected = Buffer.from(hash, "hex");
-  if (expected.length !== check.length) return false;
-  return timingSafeEqual(expected, check);
-}
+export { SESSION_COOKIE, createSessionToken, readSessionToken, hashPassword, verifyPassword };
 
 export function sessionCookieOptions() {
   return {
@@ -41,20 +29,34 @@ export async function getSession(): Promise<SessionUser | null> {
 export async function requireUser(...roles: UserRole[]): Promise<
   { user: SessionUser; error?: undefined } | { user?: undefined; error: NextResponse }
 > {
-  const user = await getSession();
-  if (!user) {
+  const session = await getSession();
+  if (!session) {
     return { error: NextResponse.json({ error: "Please sign in." }, { status: 401 }) };
   }
+  const stored = await getUser(session.id);
+  if (stored && !isAccountActive(stored)) {
+    return { error: NextResponse.json({ error: accountMessage(accountStatus(stored)) }, { status: 403 }) };
+  }
+  const user = stored ? toSessionUser(stored) : session;
   if (roles.length && !roles.includes(user.role)) {
     return { error: NextResponse.json({ error: "You do not have access." }, { status: 403 }) };
+  }
+  const companyGate = await assertCompanyAllowed(user);
+  if (!companyGate.ok) {
+    return { error: NextResponse.json({ error: companyGate.error, reason: companyGate.reason }, { status: 403 }) };
   }
   return { user };
 }
 
 export async function requirePage(...roles: UserRole[]): Promise<SessionUser> {
-  const user = await getSession();
-  if (!user) redirect("/login");
+  const session = await getSession();
+  if (!session) redirect("/login");
+  const stored = await getUser(session.id);
+  if (stored && !isAccountActive(stored)) redirect("/login");
+  const user = stored ? toSessionUser(stored) : session;
   if (roles.length && !roles.includes(user.role)) redirect(homePath(user.role));
+  const companyGate = await assertCompanyAllowed(user);
+  if (!companyGate.ok) redirect(`/login?reason=${companyGate.reason}`);
   return user;
 }
 

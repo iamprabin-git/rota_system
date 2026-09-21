@@ -1,3 +1,4 @@
+import { hasDueCompanyPayment, withCompanyDefaults } from "@/lib/company";
 import * as file from "@/lib/db-file";
 import * as pg from "@/lib/db-pg";
 import { isPostgresConfigured } from "@/lib/sql";
@@ -5,6 +6,8 @@ import { usingBlob } from "@/lib/storage";
 import { sumHours } from "@/lib/uk-payroll";
 import type {
   Company,
+  CompanyFollowUp,
+  CompanyPayment,
   Employee,
   HourLog,
   Payment,
@@ -50,6 +53,16 @@ export async function upsertCompany(company: Company) {
 
 export async function saveCompany(company: Company) {
   return upsertCompany(company);
+}
+
+export async function syncCompanyLiveFromPayments(companyId: string) {
+  const company = await getCompany(companyId);
+  if (!company) return undefined;
+  const current = withCompanyDefaults(company);
+  const due = hasDueCompanyPayment(await listCompanyPayments(companyId));
+  const live = current.access === "disallowed" || due ? "deactive" : "active";
+  if (current.live === live) return current;
+  return upsertCompany({ ...current, live });
 }
 
 export async function deleteCompany(id: string) {
@@ -112,6 +125,10 @@ export async function addPayslip(payslip: Payslip) {
   return isPostgresConfigured() ? pg.addPayslip(payslip) : file.addPayslip(payslip);
 }
 
+export async function updatePayslip(payslip: Payslip) {
+  return isPostgresConfigured() ? pg.updatePayslip(payslip) : file.updatePayslip(payslip);
+}
+
 export async function deletePayslip(id: string) {
   return isPostgresConfigured() ? pg.deletePayslip(id) : file.deletePayslip(id);
 }
@@ -154,6 +171,38 @@ export async function upsertPayment(payment: Payment) {
 
 export async function deletePayment(id: string) {
   return isPostgresConfigured() ? pg.deletePayment(id) : file.deletePayment(id);
+}
+
+export async function listCompanyPayments(companyId?: string) {
+  return isPostgresConfigured() ? pg.listCompanyPayments(companyId) : file.listCompanyPayments(companyId);
+}
+
+export async function getCompanyPayment(id: string) {
+  return isPostgresConfigured() ? pg.getCompanyPayment(id) : file.getCompanyPayment(id);
+}
+
+export async function upsertCompanyPayment(payment: CompanyPayment) {
+  return isPostgresConfigured() ? pg.upsertCompanyPayment(payment) : file.upsertCompanyPayment(payment);
+}
+
+export async function deleteCompanyPayment(id: string) {
+  return isPostgresConfigured() ? pg.deleteCompanyPayment(id) : file.deleteCompanyPayment(id);
+}
+
+export async function listCompanyFollowUps(companyId?: string) {
+  return isPostgresConfigured() ? pg.listCompanyFollowUps(companyId) : file.listCompanyFollowUps(companyId);
+}
+
+export async function getCompanyFollowUp(id: string) {
+  return isPostgresConfigured() ? pg.getCompanyFollowUp(id) : file.getCompanyFollowUp(id);
+}
+
+export async function upsertCompanyFollowUp(item: CompanyFollowUp) {
+  return isPostgresConfigured() ? pg.upsertCompanyFollowUp(item) : file.upsertCompanyFollowUp(item);
+}
+
+export async function deleteCompanyFollowUp(id: string) {
+  return isPostgresConfigured() ? pg.deleteCompanyFollowUp(id) : file.deleteCompanyFollowUp(id);
 }
 
 export async function listFiles(employeeId?: string, companyId?: string) {

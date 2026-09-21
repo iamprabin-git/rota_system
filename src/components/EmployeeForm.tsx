@@ -114,6 +114,9 @@ export function EmployeeForm({ employee }: { employee?: Employee }) {
             placeholder="name@company.local"
           />
         </label>
+        <p className="col-span-full text-sm text-ink-soft">
+          Staff can sign in with this email. New logins stay pending until you approve them under Users.
+        </p>
         <label className="field">
           {employee ? "New login password" : "Login password"}
           <input

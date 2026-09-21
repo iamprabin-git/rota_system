@@ -1,9 +1,13 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { hashPassword } from "./auth";
+import { withCompanyDefaults } from "./company";
+import { hashPassword } from "./passwords";
 import { startOfWeek } from "./format";
+import { accountStatus, withHourApproval, withPayslipApproval } from "./approvals";
 import type {
   Company,
+  CompanyFollowUp,
+  CompanyPayment,
   Database,
   Employee,
   HourLog,
@@ -52,6 +56,13 @@ function rotasystemCompany(): Company {
     accountsOfficeRef: "123PA00012345",
     email: "payroll@rotasystem.example",
     phone: "020 7946 0123",
+    logo: "",
+    access: "allowed",
+    live: "active",
+    crmStage: "active",
+    crmNotes: "",
+    nextFollowUp: "",
+    lastContactedAt: "",
   };
 }
 
@@ -68,6 +79,13 @@ function harbourviewCompany(): Company {
     accountsOfficeRef: "475PA00088210",
     email: "payroll@harbourview.example",
     phone: "028 9032 4100",
+    logo: "",
+    access: "allowed",
+    live: "active",
+    crmStage: "active",
+    crmNotes: "",
+    nextFollowUp: "",
+    lastContactedAt: "",
   };
 }
 
@@ -84,6 +102,13 @@ export function blankCompany(): Company {
     accountsOfficeRef: "",
     email: "",
     phone: "",
+    logo: "",
+    access: "allowed",
+    live: "active",
+    crmStage: "lead",
+    crmNotes: "",
+    nextFollowUp: "",
+    lastContactedAt: "",
   };
 }
 
@@ -213,6 +238,7 @@ function seedUsers(employees: Employee[]): User[] {
       companyId: null,
       employeeId: null,
       createdAt: now,
+      status: "active" as const,
     },
     {
       id: "user_agent_rs",
@@ -223,6 +249,7 @@ function seedUsers(employees: Employee[]): User[] {
       companyId: COMPANY_RS,
       employeeId: null,
       createdAt: now,
+      status: "active" as const,
     },
     {
       id: "user_agent_hv",
@@ -233,6 +260,7 @@ function seedUsers(employees: Employee[]): User[] {
       companyId: COMPANY_HV,
       employeeId: null,
       createdAt: now,
+      status: "active" as const,
     },
     ...employees.map((employee) => ({
       id: `user_${employee.id}`,
@@ -243,6 +271,7 @@ function seedUsers(employees: Employee[]): User[] {
       companyId: employee.companyId,
       employeeId: employee.id,
       createdAt: now,
+      status: "active" as const,
     })),
   ];
 }
@@ -257,6 +286,8 @@ function seed(): Database {
     payslips: [],
     hourLogs: [],
     payments: [],
+    companyPayments: [],
+    companyFollowUps: [],
     files: [],
   };
 }
@@ -331,7 +362,9 @@ function migrateUsers(users: User[], employees: Employee[], companies: Company[]
       dirty = true;
     }
     if (user.role !== role) dirty = true;
-    return { ...user, role, companyId };
+    const status = user.status || "active";
+    if (user.status !== status) dirty = true;
+    return { ...user, role, companyId, status };
   });
 
   if (!next.some((user) => user.role === "admin")) {
@@ -344,6 +377,7 @@ function migrateUsers(users: User[], employees: Employee[], companies: Company[]
       companyId: null,
       employeeId: null,
       createdAt: new Date().toISOString(),
+      status: "active",
     });
     dirty = true;
   }
@@ -360,6 +394,7 @@ function migrateUsers(users: User[], employees: Employee[], companies: Company[]
       companyId: company.id,
       employeeId: null,
       createdAt: new Date().toISOString(),
+      status: "active",
     });
     dirty = true;
   }
@@ -413,6 +448,7 @@ function ensureDb(): Database {
         companyId: employee.companyId,
         employeeId: employee.id,
         createdAt: new Date().toISOString(),
+        status: "active",
       });
       dirty = true;
     }
@@ -443,6 +479,8 @@ function ensureDb(): Database {
       payslips,
       hourLogs: parsed.hourLogs ?? [],
       payments,
+      companyPayments: parsed.companyPayments ?? [],
+      companyFollowUps: parsed.companyFollowUps ?? [],
       files: parsed.files ?? [],
     };
     if (dirty) save(db);
@@ -474,7 +512,7 @@ export function getCompany(id?: string | null): Company | undefined {
 
 export function upsertCompany(company: Company): Company {
   const db = getDb();
-  const next = { ...company, id: company.id || `co_${crypto.randomUUID()}` };
+  const next = withCompanyDefaults({ ...company, id: company.id || `co_${crypto.randomUUID()}` });
   const index = db.companies.findIndex((item) => item.id === next.id);
   if (index === -1) db.companies.push(next);
   else db.companies[index] = next;
@@ -491,6 +529,8 @@ export function deleteCompany(id: string) {
   const latest = getDb();
   latest.companies = latest.companies.filter((company) => company.id !== id);
   latest.users = latest.users.filter((user) => user.companyId !== id);
+  latest.companyPayments = latest.companyPayments.filter((item) => item.companyId !== id);
+  latest.companyFollowUps = latest.companyFollowUps.filter((item) => item.companyId !== id);
   save(latest);
 }
 
@@ -544,7 +584,9 @@ export function deleteEmployee(id: string) {
 }
 
 export function listUsers(companyId?: string): User[] {
-  return getDb().users.filter((user) => !companyId || user.companyId === companyId);
+  return getDb()
+    .users.filter((user) => !companyId || user.companyId === companyId)
+    .map((user) => ({ ...user, status: accountStatus(user) }));
 }
 
 export function listAgents(companyId?: string): User[] {
@@ -552,11 +594,13 @@ export function listAgents(companyId?: string): User[] {
 }
 
 export function getUser(id: string): User | undefined {
-  return getDb().users.find((user) => user.id === id);
+  const user = getDb().users.find((item) => item.id === id);
+  return user ? { ...user, status: accountStatus(user) } : undefined;
 }
 
 export function getUserByEmail(email: string): User | undefined {
-  return getDb().users.find((user) => user.email.toLowerCase() === email.toLowerCase());
+  const user = getDb().users.find((item) => item.email.toLowerCase() === email.toLowerCase());
+  return user ? { ...user, status: accountStatus(user) } : undefined;
 }
 
 export function upsertUser(user: User): User {
@@ -597,6 +641,7 @@ export function setStaffLogin(employee: Employee, password?: string) {
     companyId: employee.companyId,
     employeeId: employee.id,
     createdAt: new Date().toISOString(),
+    status: "pending",
   });
   save(db);
 }
@@ -605,31 +650,56 @@ export function listPayslips(employeeId?: string, companyId?: string): Payslip[]
   const ids = employeeIdsFor(getDb().employees, companyId);
   return getDb()
     .payslips.filter((slip) => (!employeeId || slip.employeeId === employeeId) && belongsToCompany(slip.employeeId, ids))
+    .map((slip) => withPayslipApproval(slip))
     .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate) || b.createdAt.localeCompare(a.createdAt));
 }
 
 export function getPayslip(id: string): Payslip | undefined {
-  return getDb().payslips.find((slip) => slip.id === id);
+  const slip = getDb().payslips.find((item) => item.id === id);
+  return slip ? withPayslipApproval(slip) : undefined;
 }
 
-export function addPayslip(payslip: Payslip): Payslip {
-  const db = getDb();
-  db.payslips.unshift(payslip);
-  db.payments.unshift({
+function paymentFromPayslip(payslip: Payslip) {
+  return {
     id: `pay_${payslip.id}`,
     employeeId: payslip.employeeId,
     payslipId: payslip.id,
     amount: payslip.calculation.netPay,
-    status: "due",
+    status: "due" as const,
     dueDate: payslip.paymentDate,
     paidDate: "",
     method: payslip.snapshot.paymentMethod,
     reference: payslip.snapshot.payrollNumber,
     notes: `Net pay for ${payslip.periodStart} to ${payslip.periodEnd}`,
     createdAt: payslip.createdAt,
-  });
+  };
+}
+
+export function addPayslip(payslip: Payslip): Payslip {
+  const db = getDb();
+  const next = withPayslipApproval(payslip, "pending");
+  db.payslips.unshift(next);
+  if (next.status === "approved") db.payments.unshift(paymentFromPayslip(next));
   save(db);
-  return payslip;
+  return next;
+}
+
+export function updatePayslip(payslip: Payslip): Payslip {
+  const db = getDb();
+  const next = withPayslipApproval(payslip);
+  const index = db.payslips.findIndex((item) => item.id === next.id);
+  if (index === -1) db.payslips.unshift(next);
+  else db.payslips[index] = next;
+  const payIndex = db.payments.findIndex((item) => item.payslipId === next.id);
+  if (next.status === "approved") {
+    const payment = paymentFromPayslip(next);
+    if (payIndex === -1) db.payments.unshift(payment);
+    else db.payments[payIndex] = { ...db.payments[payIndex], amount: payment.amount, dueDate: payment.dueDate, notes: payment.notes };
+  } else if (payIndex !== -1 && db.payments[payIndex].status === "due") {
+    db.payments.splice(payIndex, 1);
+  }
+  save(db);
+  return next;
 }
 
 export function deletePayslip(id: string) {
@@ -665,16 +735,20 @@ export function listHourLogs(employeeId?: string, companyId?: string): HourLog[]
   const ids = employeeIdsFor(getDb().employees, companyId);
   return getDb()
     .hourLogs.filter((log) => (!employeeId || log.employeeId === employeeId) && belongsToCompany(log.employeeId, ids))
+    .map((log) => withHourApproval(log))
     .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
 }
 
 export function getHourLog(id: string): HourLog | undefined {
-  return getDb().hourLogs.find((log) => log.id === id);
+  const log = getDb().hourLogs.find((item) => item.id === id);
+  return log ? withHourApproval(log) : undefined;
 }
 
 function syncRotaFromLogs(employeeId: string, date: string) {
   const weekStart = startOfWeek(new Date(`${date}T12:00:00`));
-  const logs = listHourLogs(employeeId).filter((log) => startOfWeek(new Date(`${log.date}T12:00:00`)) === weekStart);
+  const logs = listHourLogs(employeeId).filter(
+    (log) => log.status === "approved" && startOfWeek(new Date(`${log.date}T12:00:00`)) === weekStart,
+  );
   const days = emptyDays();
   let overtimeHours = 0;
   for (const log of logs) {
@@ -687,14 +761,14 @@ function syncRotaFromLogs(employeeId: string, date: string) {
     weekStart,
     days,
     overtimeHours,
-    notes: "Synced from personal hour records",
+    notes: logs.length ? "Synced from approved hour records" : "",
   });
 }
 
 export function upsertHourLog(log: HourLog): HourLog {
   const db = getDb();
   const index = db.hourLogs.findIndex((item) => item.id === log.id);
-  const next = { ...log, hours: Number(log.hours) || 0, overtimeHours: Number(log.overtimeHours) || 0 };
+  const next = withHourApproval({ ...log, hours: Number(log.hours) || 0, overtimeHours: Number(log.overtimeHours) || 0 }, "pending");
   if (index === -1) db.hourLogs.unshift(next);
   else db.hourLogs[index] = next;
   save(db);
@@ -735,6 +809,56 @@ export function upsertPayment(payment: Payment): Payment {
 export function deletePayment(id: string) {
   const db = getDb();
   db.payments = db.payments.filter((payment) => payment.id !== id);
+  save(db);
+}
+
+export function listCompanyPayments(companyId?: string): CompanyPayment[] {
+  return getDb()
+    .companyPayments.filter((item) => !companyId || item.companyId === companyId)
+    .sort((a, b) => b.dueDate.localeCompare(a.dueDate) || b.createdAt.localeCompare(a.createdAt));
+}
+
+export function getCompanyPayment(id: string): CompanyPayment | undefined {
+  return getDb().companyPayments.find((item) => item.id === id);
+}
+
+export function upsertCompanyPayment(payment: CompanyPayment): CompanyPayment {
+  const db = getDb();
+  const index = db.companyPayments.findIndex((item) => item.id === payment.id);
+  if (index === -1) db.companyPayments.unshift(payment);
+  else db.companyPayments[index] = payment;
+  save(db);
+  return payment;
+}
+
+export function deleteCompanyPayment(id: string) {
+  const db = getDb();
+  db.companyPayments = db.companyPayments.filter((item) => item.id !== id);
+  save(db);
+}
+
+export function listCompanyFollowUps(companyId?: string): CompanyFollowUp[] {
+  return getDb()
+    .companyFollowUps.filter((item) => !companyId || item.companyId === companyId)
+    .sort((a, b) => (a.completedAt ? 1 : 0) - (b.completedAt ? 1 : 0) || a.dueDate.localeCompare(b.dueDate));
+}
+
+export function getCompanyFollowUp(id: string): CompanyFollowUp | undefined {
+  return getDb().companyFollowUps.find((item) => item.id === id);
+}
+
+export function upsertCompanyFollowUp(item: CompanyFollowUp): CompanyFollowUp {
+  const db = getDb();
+  const index = db.companyFollowUps.findIndex((entry) => entry.id === item.id);
+  if (index === -1) db.companyFollowUps.unshift(item);
+  else db.companyFollowUps[index] = item;
+  save(db);
+  return item;
+}
+
+export function deleteCompanyFollowUp(id: string) {
+  const db = getDb();
+  db.companyFollowUps = db.companyFollowUps.filter((item) => item.id !== id);
   save(db);
 }
 

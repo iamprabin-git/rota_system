@@ -32,3 +32,14 @@ export function initials(name: string) {
   const parts = name.trim().split(/\s+/);
   return `${parts[0]?.[0] || ""}${parts[1]?.[0] || parts[0]?.[1] || ""}`.toUpperCase();
 }
+
+export function companyDisplayName(company?: { tradingName?: string; name?: string } | null) {
+  return company?.tradingName || company?.name || "";
+}
+
+export function companyHue(id?: string) {
+  if (!id) return 28;
+  let hash = 0;
+  for (let i = 0; i < id.length; i += 1) hash = (hash * 33 + id.charCodeAt(i)) >>> 0;
+  return hash % 360;
+}

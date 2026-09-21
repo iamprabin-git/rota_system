@@ -1,10 +1,14 @@
-import { hashPassword } from "./auth";
+import { withCompanyDefaults } from "./company";
+import { hashPassword } from "./passwords";
 import { getDb } from "./db-file";
 import { startOfWeek } from "./format";
 import { ensurePostgres, execute, query } from "./sql";
 import { removeObject } from "./storage";
+import { accountStatus, approvalStatus, withHourApproval, withPayslipApproval } from "./approvals";
 import type {
   Company,
+  CompanyFollowUp,
+  CompanyPayment,
   Employee,
   HourLog,
   Payment,
@@ -46,6 +50,16 @@ function mapCompany(row: Record<string, unknown>): Company {
     accountsOfficeRef: String(row.accounts_office_ref || ""),
     email: String(row.email || ""),
     phone: String(row.phone || ""),
+    logo: String(row.logo || ""),
+    access: row.access === "disallowed" ? "disallowed" : "allowed",
+    live: row.live === "deactive" ? "deactive" : "active",
+    crmStage:
+      row.crm_stage === "lead" || row.crm_stage === "onboarding" || row.crm_stage === "at-risk" || row.crm_stage === "closed"
+        ? row.crm_stage
+        : "active",
+    crmNotes: String(row.crm_notes || ""),
+    nextFollowUp: String(row.next_follow_up || ""),
+    lastContactedAt: String(row.last_contacted_at || ""),
   };
 }
 
@@ -93,6 +107,7 @@ function mapUser(row: Record<string, unknown>): User {
     phone: String(row.phone || ""),
     jobTitle: String(row.job_title || ""),
     notifyEmail: row.notify_email !== false,
+    status: accountStatus({ status: row.status as User["status"] }),
   };
 }
 
@@ -112,11 +127,17 @@ function mapHour(row: Record<string, unknown>): HourLog {
     id: String(row.id),
     employeeId: String(row.employee_id),
     date: String(row.date),
+    startTime: String(row.start_time || ""),
+    endTime: String(row.end_time || ""),
     hours: num(row.hours),
     overtimeHours: num(row.overtime_hours),
     notes: String(row.notes || ""),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
+    status: approvalStatus(row.status as HourLog["status"]),
+    reviewNote: String(row.review_note || ""),
+    reviewedAt: String(row.reviewed_at || ""),
+    reviewedBy: String(row.reviewed_by || ""),
   };
 }
 
@@ -132,6 +153,32 @@ function mapPayment(row: Record<string, unknown>): Payment {
     method: (row.method as Payment["method"]) || "",
     reference: String(row.reference || ""),
     notes: String(row.notes || ""),
+    createdAt: String(row.created_at),
+  };
+}
+
+function mapCompanyPayment(row: Record<string, unknown>): CompanyPayment {
+  return {
+    id: String(row.id),
+    companyId: String(row.company_id),
+    amount: num(row.amount),
+    status: row.status === "received" ? "received" : "due",
+    dueDate: String(row.due_date),
+    paidDate: String(row.paid_date || ""),
+    method: (row.method as CompanyPayment["method"]) || "",
+    reference: String(row.reference || ""),
+    notes: String(row.notes || ""),
+    createdAt: String(row.created_at),
+  };
+}
+
+function mapCompanyFollowUp(row: Record<string, unknown>): CompanyFollowUp {
+  return {
+    id: String(row.id),
+    companyId: String(row.company_id),
+    note: String(row.note || ""),
+    dueDate: String(row.due_date || ""),
+    completedAt: String(row.completed_at || ""),
     createdAt: String(row.created_at),
   };
 }
@@ -179,6 +226,8 @@ async function seedIfEmpty() {
   }
   for (const log of snapshot.hourLogs) await upsertHourLog(log, false);
   for (const payment of snapshot.payments) await upsertPayment(payment);
+  for (const payment of snapshot.companyPayments) await upsertCompanyPayment(payment);
+  for (const item of snapshot.companyFollowUps) await upsertCompanyFollowUp(item);
   for (const file of snapshot.files) await addFileRecord(file);
 }
 
@@ -219,15 +268,17 @@ export async function getCompany(id?: string | null) {
 
 export async function upsertCompany(company: Company) {
   await ready();
-  const next = { ...company, id: company.id || `co_${crypto.randomUUID()}` };
+  const next = withCompanyDefaults({ ...company, id: company.id || `co_${crypto.randomUUID()}` });
   await execute(
-    `INSERT INTO companies (id, name, trading_name, address_line1, address_line2, city, postcode, paye_reference, accounts_office_ref, email, phone)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    `INSERT INTO companies (id, name, trading_name, address_line1, address_line2, city, postcode, paye_reference, accounts_office_ref, email, phone, logo, access, live, crm_stage, crm_notes, next_follow_up, last_contacted_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
      ON CONFLICT (id) DO UPDATE SET
        name = EXCLUDED.name, trading_name = EXCLUDED.trading_name, address_line1 = EXCLUDED.address_line1,
        address_line2 = EXCLUDED.address_line2, city = EXCLUDED.city, postcode = EXCLUDED.postcode,
        paye_reference = EXCLUDED.paye_reference, accounts_office_ref = EXCLUDED.accounts_office_ref,
-       email = EXCLUDED.email, phone = EXCLUDED.phone`,
+       email = EXCLUDED.email, phone = EXCLUDED.phone, logo = EXCLUDED.logo, access = EXCLUDED.access,
+       live = EXCLUDED.live, crm_stage = EXCLUDED.crm_stage, crm_notes = EXCLUDED.crm_notes,
+       next_follow_up = EXCLUDED.next_follow_up, last_contacted_at = EXCLUDED.last_contacted_at`,
     [
       next.id,
       next.name,
@@ -240,6 +291,13 @@ export async function upsertCompany(company: Company) {
       next.accountsOfficeRef,
       next.email,
       next.phone,
+      next.logo || "",
+      next.access,
+      next.live,
+      next.crmStage,
+      next.crmNotes,
+      next.nextFollowUp,
+      next.lastContactedAt,
     ],
   );
   return next;
@@ -251,10 +309,14 @@ export async function saveCompany(company: Company) {
 
 export async function deleteCompany(id: string) {
   await ready();
+  const company = await getCompany(id);
   const people = await listEmployees(id);
   for (const employee of people) await deleteEmployee(employee.id);
+  await execute("DELETE FROM company_payments WHERE company_id = $1", [id]);
+  await execute("DELETE FROM company_followups WHERE company_id = $1", [id]);
   await execute("DELETE FROM users WHERE company_id = $1", [id]);
   await execute("DELETE FROM companies WHERE id = $1", [id]);
+  await removeObject(company?.logo);
 }
 
 export async function listEmployees(companyId?: string) {
@@ -369,12 +431,12 @@ export async function getUserByEmail(email: string) {
 export async function upsertUser(user: User) {
   await ready();
   await execute(
-    `INSERT INTO users (id, email, password_hash, name, role, company_id, employee_id, created_at, avatar, phone, job_title, notify_email)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+    `INSERT INTO users (id, email, password_hash, name, role, company_id, employee_id, created_at, avatar, phone, job_title, notify_email, status)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
      ON CONFLICT (id) DO UPDATE SET
        email = EXCLUDED.email, password_hash = EXCLUDED.password_hash, name = EXCLUDED.name, role = EXCLUDED.role,
        company_id = EXCLUDED.company_id, employee_id = EXCLUDED.employee_id, avatar = EXCLUDED.avatar,
-       phone = EXCLUDED.phone, job_title = EXCLUDED.job_title, notify_email = EXCLUDED.notify_email`,
+       phone = EXCLUDED.phone, job_title = EXCLUDED.job_title, notify_email = EXCLUDED.notify_email, status = EXCLUDED.status`,
     [
       user.id,
       user.email,
@@ -388,6 +450,7 @@ export async function upsertUser(user: User) {
       user.phone || "",
       user.jobTitle || "",
       user.notifyEmail !== false,
+      accountStatus(user),
     ],
   );
   return user;
@@ -421,6 +484,7 @@ export async function setStaffLogin(employee: Employee, password?: string) {
     companyId: employee.companyId,
     employeeId: employee.id,
     createdAt: new Date().toISOString(),
+    status: "pending",
   });
 }
 
@@ -430,7 +494,7 @@ export async function listPayslips(employeeId?: string, companyId?: string) {
   let rows = employeeId
     ? await query("SELECT data FROM payslips WHERE employee_id = $1", [employeeId])
     : await query("SELECT data FROM payslips");
-  const slips = rows.map((row) => json<Payslip>(row.data, {} as Payslip)).filter((slip) => slip.id);
+  const slips = rows.map((row) => withPayslipApproval(json<Payslip>(row.data, {} as Payslip))).filter((slip) => slip.id);
   return slips
     .filter((slip) => (!employeeId || slip.employeeId === employeeId) && (!ids || ids.has(slip.employeeId)))
     .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate) || b.createdAt.localeCompare(a.createdAt));
@@ -439,29 +503,55 @@ export async function listPayslips(employeeId?: string, companyId?: string) {
 export async function getPayslip(id: string) {
   await ready();
   const rows = await query("SELECT data FROM payslips WHERE id = $1", [id]);
-  return rows[0] ? json<Payslip>(rows[0].data, {} as Payslip) : undefined;
+  return rows[0] ? withPayslipApproval(json<Payslip>(rows[0].data, {} as Payslip)) : undefined;
 }
 
-export async function addPayslip(payslip: Payslip) {
-  await ready();
-  await execute(
-    `INSERT INTO payslips (id, employee_id, payment_date, created_at, data) VALUES ($1,$2,$3,$4,$5::jsonb)`,
-    [payslip.id, payslip.employeeId, payslip.paymentDate, payslip.createdAt, JSON.stringify(payslip)],
-  );
-  await upsertPayment({
+function paymentFromPayslip(payslip: Payslip) {
+  return {
     id: `pay_${payslip.id}`,
     employeeId: payslip.employeeId,
     payslipId: payslip.id,
     amount: payslip.calculation.netPay,
-    status: "due",
+    status: "due" as const,
     dueDate: payslip.paymentDate,
     paidDate: "",
     method: payslip.snapshot.paymentMethod,
     reference: payslip.snapshot.payrollNumber,
     notes: `Net pay for ${payslip.periodStart} to ${payslip.periodEnd}`,
     createdAt: payslip.createdAt,
-  });
-  return payslip;
+  };
+}
+
+export async function addPayslip(payslip: Payslip) {
+  await ready();
+  const next = withPayslipApproval(payslip, "pending");
+  await execute(
+    `INSERT INTO payslips (id, employee_id, payment_date, created_at, status, data) VALUES ($1,$2,$3,$4,$5,$6::jsonb)`,
+    [next.id, next.employeeId, next.paymentDate, next.createdAt, next.status, JSON.stringify(next)],
+  );
+  if (next.status === "approved") await upsertPayment(paymentFromPayslip(next));
+  return next;
+}
+
+export async function updatePayslip(payslip: Payslip) {
+  await ready();
+  const next = withPayslipApproval(payslip);
+  await execute(
+    `UPDATE payslips SET payment_date = $1, status = $2, data = $3::jsonb WHERE id = $4`,
+    [next.paymentDate, next.status, JSON.stringify(next), next.id],
+  );
+  const existing = await getPayment(`pay_${next.id}`);
+  if (next.status === "approved") {
+    const payment = paymentFromPayslip(next);
+    if (existing) {
+      await upsertPayment({ ...existing, amount: payment.amount, dueDate: payment.dueDate, notes: payment.notes });
+    } else {
+      await upsertPayment(payment);
+    }
+  } else if (existing?.status === "due") {
+    await deletePayment(existing.id);
+  }
+  return next;
 }
 
 export async function deletePayslip(id: string) {
@@ -509,7 +599,9 @@ export async function getHourLog(id: string) {
 
 async function syncRotaFromLogs(employeeId: string, date: string) {
   const weekStart = startOfWeek(new Date(`${date}T12:00:00`));
-  const logs = (await listHourLogs(employeeId)).filter((log) => startOfWeek(new Date(`${log.date}T12:00:00`)) === weekStart);
+  const logs = (await listHourLogs(employeeId)).filter(
+    (log) => log.status === "approved" && startOfWeek(new Date(`${log.date}T12:00:00`)) === weekStart,
+  );
   const days = emptyDays();
   let overtimeHours = 0;
   for (const log of logs) {
@@ -522,20 +614,37 @@ async function syncRotaFromLogs(employeeId: string, date: string) {
     weekStart,
     days,
     overtimeHours,
-    notes: "Synced from personal hour records",
+    notes: logs.length ? "Synced from approved hour records" : "",
   });
 }
 
 export async function upsertHourLog(log: HourLog, sync = true) {
   await ready();
-  const next = { ...log, hours: Number(log.hours) || 0, overtimeHours: Number(log.overtimeHours) || 0 };
+  const next = withHourApproval({ ...log, hours: Number(log.hours) || 0, overtimeHours: Number(log.overtimeHours) || 0 }, "pending");
   await execute(
-    `INSERT INTO hour_logs (id, employee_id, date, hours, overtime_hours, notes, created_at, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+    `INSERT INTO hour_logs (id, employee_id, date, hours, overtime_hours, notes, created_at, updated_at, status, review_note, reviewed_at, reviewed_by, start_time, end_time)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
      ON CONFLICT (id) DO UPDATE SET
        date = EXCLUDED.date, hours = EXCLUDED.hours, overtime_hours = EXCLUDED.overtime_hours,
-       notes = EXCLUDED.notes, updated_at = EXCLUDED.updated_at`,
-    [next.id, next.employeeId, next.date, next.hours, next.overtimeHours, next.notes, next.createdAt, next.updatedAt],
+       notes = EXCLUDED.notes, updated_at = EXCLUDED.updated_at, status = EXCLUDED.status,
+       review_note = EXCLUDED.review_note, reviewed_at = EXCLUDED.reviewed_at, reviewed_by = EXCLUDED.reviewed_by,
+       start_time = EXCLUDED.start_time, end_time = EXCLUDED.end_time`,
+    [
+      next.id,
+      next.employeeId,
+      next.date,
+      next.hours,
+      next.overtimeHours,
+      next.notes,
+      next.createdAt,
+      next.updatedAt,
+      next.status,
+      next.reviewNote || "",
+      next.reviewedAt || "",
+      next.reviewedBy || "",
+      next.startTime || "",
+      next.endTime || "",
+    ],
   );
   if (sync) await syncRotaFromLogs(next.employeeId, next.date);
   return next;
@@ -591,6 +700,80 @@ export async function upsertPayment(payment: Payment) {
 export async function deletePayment(id: string) {
   await ready();
   await execute("DELETE FROM payments WHERE id = $1", [id]);
+}
+
+export async function listCompanyPayments(companyId?: string) {
+  await ready();
+  const rows = companyId
+    ? await query("SELECT * FROM company_payments WHERE company_id = $1 ORDER BY due_date DESC, created_at DESC", [companyId])
+    : await query("SELECT * FROM company_payments ORDER BY due_date DESC, created_at DESC");
+  return rows.map(mapCompanyPayment);
+}
+
+export async function getCompanyPayment(id: string) {
+  await ready();
+  const rows = await query("SELECT * FROM company_payments WHERE id = $1", [id]);
+  return rows[0] ? mapCompanyPayment(rows[0]) : undefined;
+}
+
+export async function upsertCompanyPayment(payment: CompanyPayment) {
+  await ready();
+  await execute(
+    `INSERT INTO company_payments (id, company_id, amount, status, due_date, paid_date, method, reference, notes, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+     ON CONFLICT (id) DO UPDATE SET
+       amount = EXCLUDED.amount, status = EXCLUDED.status, due_date = EXCLUDED.due_date, paid_date = EXCLUDED.paid_date,
+       method = EXCLUDED.method, reference = EXCLUDED.reference, notes = EXCLUDED.notes`,
+    [
+      payment.id,
+      payment.companyId,
+      payment.amount,
+      payment.status,
+      payment.dueDate,
+      payment.paidDate,
+      payment.method,
+      payment.reference,
+      payment.notes,
+      payment.createdAt,
+    ],
+  );
+  return payment;
+}
+
+export async function deleteCompanyPayment(id: string) {
+  await ready();
+  await execute("DELETE FROM company_payments WHERE id = $1", [id]);
+}
+
+export async function listCompanyFollowUps(companyId?: string) {
+  await ready();
+  const rows = companyId
+    ? await query("SELECT * FROM company_followups WHERE company_id = $1 ORDER BY due_date ASC, created_at DESC", [companyId])
+    : await query("SELECT * FROM company_followups ORDER BY due_date ASC, created_at DESC");
+  return rows.map(mapCompanyFollowUp);
+}
+
+export async function getCompanyFollowUp(id: string) {
+  await ready();
+  const rows = await query("SELECT * FROM company_followups WHERE id = $1", [id]);
+  return rows[0] ? mapCompanyFollowUp(rows[0]) : undefined;
+}
+
+export async function upsertCompanyFollowUp(item: CompanyFollowUp) {
+  await ready();
+  await execute(
+    `INSERT INTO company_followups (id, company_id, note, due_date, completed_at, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6)
+     ON CONFLICT (id) DO UPDATE SET
+       note = EXCLUDED.note, due_date = EXCLUDED.due_date, completed_at = EXCLUDED.completed_at`,
+    [item.id, item.companyId, item.note, item.dueDate, item.completedAt, item.createdAt],
+  );
+  return item;
+}
+
+export async function deleteCompanyFollowUp(id: string) {
+  await ready();
+  await execute("DELETE FROM company_followups WHERE id = $1", [id]);
 }
 
 export async function listFiles(employeeId?: string, companyId?: string) {

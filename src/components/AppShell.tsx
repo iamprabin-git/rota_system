@@ -3,25 +3,29 @@
 import { usePathname } from "next/navigation";
 import { PanelShell } from "@/components/PanelShell";
 import { money } from "@/lib/format";
-import type { StaffNotice } from "@/lib/notifications";
-import type { Employee, SessionUser } from "@/lib/types";
+import type { StaffNotice } from "@/lib/notice-types";
+import type { Company, Employee, SessionUser } from "@/lib/types";
 
 export function AppShell({
   children,
   user,
-  companyName,
+  company,
   employee,
   notifications = [],
 }: {
   children: React.ReactNode;
   user: SessionUser | null;
-  companyName?: string;
+  company?: Pick<Company, "id" | "name" | "tradingName" | "logo"> | null;
   employee?: Employee | null;
   notifications?: StaffNotice[];
 }) {
+  const companyName = company?.tradingName || company?.name;
   const pathname = usePathname();
   const login = pathname === "/login";
-  const printing = pathname.startsWith("/payslips/") && pathname !== "/payslips/new" && !pathname.startsWith("/agent/payslips");
+  const printing =
+    pathname === "/agent/payslips/print" ||
+    pathname === "/me/statements/print" ||
+    (pathname.startsWith("/payslips/") && pathname !== "/payslips/new" && !pathname.startsWith("/agent/payslips"));
 
   if (login || !user || printing) {
     return <>{children}</>;
@@ -46,9 +50,10 @@ export function AppShell({
   return (
     <PanelShell
       user={user}
+      company={company}
       subtitle={subtitle}
       meta={meta}
-      notifications={user.role === "user" ? notifications : []}
+      notifications={notifications}
     >
       {children}
     </PanelShell>

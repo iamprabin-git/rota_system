@@ -11,6 +11,13 @@ function isUrl(value: string) {
   return value.startsWith("http://") || value.startsWith("https://");
 }
 
+function mimeFromName(name: string, fallback: string) {
+  if (name.endsWith(".png")) return "image/png";
+  if (name.endsWith(".webp")) return "image/webp";
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+  return fallback;
+}
+
 export async function putObject(kind: "files" | "avatars", name: string, bytes: Buffer, contentType: string) {
   if (usingBlob()) {
     const blob = await put(`${kind}/${name}`, bytes, {
@@ -35,11 +42,12 @@ export async function readObject(ref: string, kind: "files" | "avatars" = "files
     const buffer = Buffer.from(await new Response(result.stream).arrayBuffer());
     return { bytes: buffer, type: result.blob.contentType || "application/octet-stream" };
   }
-  const dir = kind === "avatars" ? AVATARS_DIR : FILES_DIR;
+  const name = path.basename(ref);
+  const dir = kind === "avatars" || name.startsWith("logo_") ? AVATARS_DIR : FILES_DIR;
   try {
     return {
-      bytes: readFileSync(path.join(dir, path.basename(ref))),
-      type: kind === "avatars" ? "image/jpeg" : "application/octet-stream",
+      bytes: readFileSync(path.join(dir, name)),
+      type: mimeFromName(name, kind === "avatars" ? "image/jpeg" : "application/octet-stream"),
     };
   } catch {
     return null;
@@ -56,7 +64,11 @@ export async function removeObject(ref?: string) {
     }
     return;
   }
-  const filePath = path.join(ref.includes("avatar") ? AVATARS_DIR : FILES_DIR, path.basename(ref));
+  const name = path.basename(ref);
+  const filePath = path.join(
+    name.startsWith("avatar_") || name.startsWith("logo_") || ref.includes("avatar") ? AVATARS_DIR : FILES_DIR,
+    name,
+  );
   try {
     rmSync(filePath, { force: true });
   } catch {

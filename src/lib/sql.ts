@@ -48,7 +48,8 @@ const TABLES = [
     paye_reference TEXT NOT NULL DEFAULT '',
     accounts_office_ref TEXT NOT NULL DEFAULT '',
     email TEXT NOT NULL DEFAULT '',
-    phone TEXT NOT NULL DEFAULT ''
+    phone TEXT NOT NULL DEFAULT '',
+    logo TEXT NOT NULL DEFAULT ''
   )`,
   `CREATE TABLE IF NOT EXISTS employees (
     id TEXT PRIMARY KEY,
@@ -90,7 +91,8 @@ const TABLES = [
     avatar TEXT NOT NULL DEFAULT '',
     phone TEXT NOT NULL DEFAULT '',
     job_title TEXT NOT NULL DEFAULT '',
-    notify_email BOOLEAN NOT NULL DEFAULT TRUE
+    notify_email BOOLEAN NOT NULL DEFAULT TRUE,
+    status TEXT NOT NULL DEFAULT 'active'
   )`,
   `CREATE INDEX IF NOT EXISTS users_company_idx ON users(company_id)`,
   `CREATE INDEX IF NOT EXISTS users_employee_idx ON users(employee_id)`,
@@ -108,6 +110,7 @@ const TABLES = [
     employee_id TEXT NOT NULL,
     payment_date TEXT NOT NULL,
     created_at TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'approved',
     data JSONB NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS payslips_employee_idx ON payslips(employee_id)`,
@@ -118,8 +121,14 @@ const TABLES = [
     hours DOUBLE PRECISION NOT NULL DEFAULT 0,
     overtime_hours DOUBLE PRECISION NOT NULL DEFAULT 0,
     notes TEXT NOT NULL DEFAULT '',
+    start_time TEXT NOT NULL DEFAULT '',
+    end_time TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'approved',
+    review_note TEXT NOT NULL DEFAULT '',
+    reviewed_at TEXT NOT NULL DEFAULT '',
+    reviewed_by TEXT NOT NULL DEFAULT ''
   )`,
   `CREATE INDEX IF NOT EXISTS hour_logs_employee_idx ON hour_logs(employee_id)`,
   `CREATE TABLE IF NOT EXISTS payments (
@@ -148,6 +157,43 @@ const TABLES = [
     uploaded_at TEXT NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS files_employee_idx ON files(employee_id)`,
+  `ALTER TABLE companies ADD COLUMN IF NOT EXISTS logo TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE companies ADD COLUMN IF NOT EXISTS access TEXT NOT NULL DEFAULT 'allowed'`,
+  `ALTER TABLE companies ADD COLUMN IF NOT EXISTS live TEXT NOT NULL DEFAULT 'active'`,
+  `ALTER TABLE companies ADD COLUMN IF NOT EXISTS crm_stage TEXT NOT NULL DEFAULT 'active'`,
+  `ALTER TABLE companies ADD COLUMN IF NOT EXISTS crm_notes TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE companies ADD COLUMN IF NOT EXISTS next_follow_up TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE companies ADD COLUMN IF NOT EXISTS last_contacted_at TEXT NOT NULL DEFAULT ''`,
+  `CREATE TABLE IF NOT EXISTS company_payments (
+    id TEXT PRIMARY KEY,
+    company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+    status TEXT NOT NULL,
+    due_date TEXT NOT NULL,
+    paid_date TEXT NOT NULL DEFAULT '',
+    method TEXT NOT NULL DEFAULT '',
+    reference TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS company_payments_company_idx ON company_payments(company_id)`,
+  `CREATE TABLE IF NOT EXISTS company_followups (
+    id TEXT PRIMARY KEY,
+    company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    note TEXT NOT NULL DEFAULT '',
+    due_date TEXT NOT NULL DEFAULT '',
+    completed_at TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS company_followups_company_idx ON company_followups(company_id)`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`,
+  `ALTER TABLE hour_logs ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'approved'`,
+  `ALTER TABLE hour_logs ADD COLUMN IF NOT EXISTS review_note TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE hour_logs ADD COLUMN IF NOT EXISTS reviewed_at TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE hour_logs ADD COLUMN IF NOT EXISTS reviewed_by TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE hour_logs ADD COLUMN IF NOT EXISTS start_time TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE hour_logs ADD COLUMN IF NOT EXISTS end_time TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE payslips ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'approved'`,
 ];
 
 export async function ensurePostgres() {
