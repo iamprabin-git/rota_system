@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { del, get, put } from "@vercel/blob";
-import { AVATARS_DIR, DATA_DIR, FILES_DIR } from "@/lib/db-file";
+import { AVATARS_DIR, DATA_DIR, FILES_DIR } from "./db-file";
 
 export function usingBlob() {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);

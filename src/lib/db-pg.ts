@@ -1,8 +1,8 @@
-import { hashPassword } from "@/lib/auth";
-import { getDb } from "@/lib/db-file";
-import { startOfWeek } from "@/lib/format";
-import { ensurePostgres, execute, query } from "@/lib/sql";
-import { removeObject } from "@/lib/storage";
+import { hashPassword } from "./auth";
+import { getDb } from "./db-file";
+import { startOfWeek } from "./format";
+import { ensurePostgres, execute, query } from "./sql";
+import { removeObject } from "./storage";
 import type {
   Company,
   Employee,
@@ -13,9 +13,9 @@ import type {
   RotaEntry,
   User,
   Weekday,
-} from "@/lib/types";
-import { WEEKDAYS } from "@/lib/types";
-import { emptyDays } from "@/lib/uk-payroll";
+} from "./types";
+import { WEEKDAYS } from "./types";
+import { emptyDays } from "./uk-payroll";
 
 function json<T>(value: unknown, fallback: T): T {
   if (value == null) return fallback;
@@ -182,19 +182,26 @@ async function seedIfEmpty() {
   for (const file of snapshot.files) await addFileRecord(file);
 }
 
-let seeded = false;
+let readyPromise: Promise<void> | null = null;
 let seeding = false;
 
 export async function ready() {
   await ensurePostgres();
-  if (seeded || seeding) return;
-  seeding = true;
-  try {
-    await seedIfEmpty();
-    seeded = true;
-  } finally {
-    seeding = false;
+  if (seeding) return;
+  if (!readyPromise) {
+    readyPromise = (async () => {
+      seeding = true;
+      try {
+        await seedIfEmpty();
+      } finally {
+        seeding = false;
+      }
+    })().catch((error) => {
+      readyPromise = null;
+      throw error;
+    });
   }
+  await readyPromise;
 }
 
 export async function listCompanies() {

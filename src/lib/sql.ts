@@ -1,7 +1,14 @@
 import { neon } from "@neondatabase/serverless";
 
 export function databaseUrl() {
-  return process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.POSTGRES_PRISMA_URL || "";
+  return (
+    process.env.POSTGRES_URL ||
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.DATABASE_URL_UNPOOLED ||
+    ""
+  );
 }
 
 export function isPostgresConfigured() {
@@ -14,7 +21,9 @@ let boot: Promise<void> | null = null;
 function sql() {
   const url = databaseUrl();
   if (!url) throw new Error("DATABASE_URL is not set.");
-  if (!client) client = neon(url);
+  if (!client) {
+    client = neon(url, { fetchOptions: { cache: "no-store" } });
+  }
   return client;
 }
 

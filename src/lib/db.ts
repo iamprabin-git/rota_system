@@ -32,8 +32,8 @@ export function usingVercelDb() {
 }
 
 export function storageLabel() {
-  if (isPostgresConfigured()) return "Vercel Postgres";
-  return "Local file (set DATABASE_URL for Vercel Postgres)";
+  if (isPostgresConfigured()) return "Neon Postgres";
+  return "Local file (set DATABASE_URL for Neon Postgres)";
 }
 
 export async function listCompanies() {

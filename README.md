@@ -31,16 +31,21 @@ npm run dev
 
 ## Data store
 
-On Vercel, all companies, people, logins, hours, rota, payslips and payments go in **Neon Postgres** (the Vercel Marketplace database). Uploaded files and profile photos go in **Vercel Blob**.
+All companies, people, logins, hours, rota, payslips and payments go in **Neon Postgres** (the same engine as Vercel’s Neon Marketplace database). Uploaded files and profile photos go in **Vercel Blob** when `BLOB_READ_WRITE_TOKEN` is set.
 
-1. In the Vercel dashboard, add the **Neon** integration to this project.
-2. Add the **Blob** store.
-3. Pull env vars locally:
+Create or refresh a local database URL:
+
+```bash
+npx neon claim create --env-pull --file .env.local
+npm run db:setup
+```
+
+On Vercel, add the **Neon** Marketplace integration (or paste `DATABASE_URL` / `POSTGRES_URL` into project env vars). Then:
 
 ```bash
 npx vercel env pull .env.local
 ```
 
-The first request against an empty Postgres database copies the demo records in automatically.
+The first request against an empty Postgres database copies the demo records in automatically. The admin dashboard shows **Neon Postgres** when that URL is set.
 
-Without `DATABASE_URL` / `POSTGRES_URL`, local development still uses `data/db.json` so the app can run on a laptop. The admin dashboard shows which store is live.
+Without `DATABASE_URL` / `POSTGRES_URL`, local development still uses `data/db.json`.
