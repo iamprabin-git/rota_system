@@ -1,6 +1,6 @@
 import { companyLive, isCompanyAllowed } from "./company";
 import { getCompany, getEmployee, listCompanyPayments } from "./db";
-import type { Company, SessionUser, User } from "./types";
+import type { Company, CompanyPayment, SessionUser, User } from "./types";
 
 export async function canAccessEmployee(user: SessionUser, employeeId: string): Promise<boolean> {
   const employee = await getEmployee(employeeId);
@@ -41,7 +41,12 @@ export async function assertCompanyAllowed(
     };
   }
   if (company) {
-    const payments = await listCompanyPayments(company.id);
+    let payments: CompanyPayment[] = [];
+    try {
+      payments = await listCompanyPayments(company.id);
+    } catch {
+      payments = [];
+    }
     if (companyLive(company, payments) === "deactive") {
       const due = payments.some((item) => item.status === "due");
       return {

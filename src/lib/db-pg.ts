@@ -209,6 +209,15 @@ async function companyEmployeeIds(companyId?: string) {
   return new Set(rows.map((row) => row.id));
 }
 
+async function ensureDemoAccounts() {
+  const snapshot = getDb();
+  for (const user of snapshot.users) {
+    const rows = await query<{ id: string }>("SELECT id FROM users WHERE lower(email) = lower($1)", [user.email]);
+    if (rows[0]) continue;
+    await upsertUser(user);
+  }
+}
+
 async function seedIfEmpty() {
   const count = await query<{ n: string }>("SELECT COUNT(*)::text AS n FROM companies");
   if (Number(count[0]?.n || 0) > 0) return;
@@ -242,6 +251,7 @@ export async function ready() {
       seeding = true;
       try {
         await seedIfEmpty();
+        await ensureDemoAccounts();
       } finally {
         seeding = false;
       }

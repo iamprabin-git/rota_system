@@ -28,8 +28,20 @@ function sql() {
 }
 
 export async function query<T extends Record<string, unknown>>(text: string, params: unknown[] = []): Promise<T[]> {
-  const rows = await sql().query(text, params);
-  return rows as T[];
+  try {
+    const rows = await sql().query(text, params);
+    return rows as T[];
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/does not exist|undefined_table|undefined_column/i.test(message)) {
+      client = null;
+      boot = null;
+      await ensurePostgres();
+      const rows = await sql().query(text, params);
+      return rows as T[];
+    }
+    throw error;
+  }
 }
 
 export async function execute(text: string, params: unknown[] = []) {

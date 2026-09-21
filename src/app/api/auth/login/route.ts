@@ -58,8 +58,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Enter your email and password.", reason: "invalid" }, { status: 400 });
     }
     console.error(error);
+    const message = error instanceof Error ? error.message : "";
+    const unreachable = /fetch failed|ECONNRESET|ENOTFOUND|ETIMEDOUT|ECONNREFUSED|timeout|Connect/i.test(message);
     return NextResponse.json(
-      { error: "Could not reach the database. Please try again.", reason: "server" },
+      {
+        error: unreachable
+          ? "Could not reach the database. Please try again."
+          : "Sign-in failed. Please try again.",
+        reason: "server",
+      },
       { status: 500 },
     );
   }
