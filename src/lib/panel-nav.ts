@@ -82,7 +82,7 @@ export const USER_NAV: PanelNavGroup[] = [
   {
     label: "Pay",
     items: [
-      { href: "/me/statements", label: "Statements", hint: "View and print payslips", icon: "fileText" },
+      { href: "/me/statements", label: "Statements", hint: "Daily hours and payslips", icon: "fileText" },
       { href: "/me/payments", label: "Payments", hint: "Due and received", icon: "wallet" },
     ],
   },
